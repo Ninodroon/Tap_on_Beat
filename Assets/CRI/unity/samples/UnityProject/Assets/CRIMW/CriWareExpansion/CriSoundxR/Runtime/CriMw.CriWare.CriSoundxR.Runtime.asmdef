@@ -1,0 +1,16 @@
+{
+    "name": "CriMw.CriWare.CriSoundxR.Runtime",
+    "rootNamespace": "",
+    "references": [
+        "CriMw.CriWare.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

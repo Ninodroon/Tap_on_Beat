@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: PrefabGroup
+  m_EditorClassIdentifier: 
+  m_GroupName: PrefabGroup
+  m_Data:
+    m_SerializedData: []
+  m_GUID: 6ae7a968cbe944bf1b2b5d42a9e5f666
+  m_SerializeEntries:
+  - m_GUID: d7d8b0ca8926e6a47b00a490c623b1e6
+    m_Address: PrefabList
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+  - m_GUID: a08df40eb64d9654288894241e22ba67
+    m_Address: Assets/CriAssetSamples/Scenes/music0.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+  - m_GUID: 1d98abaeb726d864581c2e5aafd67159
+    m_Address: Assets/CriAssetSamples/Scenes/music1.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+  - m_GUID: 409d97bd801ae724581c7b619cfb0628
+    m_Address: Assets/CriAssetSamples/Data/CueSheet_0.acb
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: d2d0504cd90a5487992bf04cada6ed81, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 8159031257cde4410ba4adf8419e9606, type: 2}
+    - {fileID: 11400000, guid: e0f56d3b368884db6af404e0d88c33f6, type: 2}
