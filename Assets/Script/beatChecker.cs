@@ -1,61 +1,70 @@
 using UnityEngine;
-using DG.Tweening;
 
-[RequireComponent(typeof(Renderer))]
-public class beatChecker : MonoBehaviour
+public class BeatChecker : MonoBehaviour
 {
-    [Header("ビート設定")]
-    public float bpm = 120f;           // BPM（1分あたりのビート数）
-    private float beatInterval;        // 1ビートの秒数
-    private float timer;
-    private int beatCount = 0;
-
-
-    [Header("色設定")]
-    public Color beatColor = Color.red; // 一瞬変える色
-    public float flashDuration = 0.1f;  // 色を維持する時間
-
-    private Color originalColor;
     private Renderer rend;
+    private Color originalColor;
+    private Color beatColor = Color.red;
+
+    private float flashTimer = 0f;
+    private float flashDuration = 0.1f;
+
+    private bool isMarker = false;
+
+    long markerDspTime;
+    long jumpDspTime;
+
+
+    private void OnEnable()
+    {
+        AdxMarkerBroadcaster.OnMarkerReceived += OnSequencerCallback;
+    }
+
+    private void OnDisable()
+    {
+        AdxMarkerBroadcaster.OnMarkerReceived -= OnSequencerCallback;
+    }
 
     void Start()
     {
-        beatInterval = 60f / bpm;
-        timer = 0f;
-
         rend = GetComponent<Renderer>();
         originalColor = rend.material.color;
     }
 
-    void Update()
+    // ---- コールバック：ここでは絶対に色を変えない ----
+    void OnSequencerCallback(string tag)
     {
-        timer += Time.deltaTime; // 前フレームからの経過時間を足す
-
-        if (timer >= beatInterval)
+        if (tag == "JUMP")
         {
-            FlashColor();
-            OnBeat();
-
-            timer -= beatInterval; // 次の拍のタイミングへ
+            markerDspTime = DededeJump2.Instance.music.time;
+            isMarker = true;
         }
     }
 
-    void FlashColor()
+    // ---- 全ての描画は Update に固定 ----
+    void Update()
     {
-        rend.material.DOColor(beatColor, flashDuration / 2f).OnComplete(() =>
+        // 光らせる要求が来た
+        if (isMarker)
         {
-            rend.material.DOColor(originalColor, flashDuration / 2f);
-        });
-    }
+            isMarker = false;
 
-    void OnBeat()
-    {
-        beatCount++;
-        // 奇数拍が表拍、偶数拍が裏拍
-        bool isBackBeat = beatCount % 2 == 0;
-        if (isBackBeat)
+            rend.material.color = beatColor;
+            flashTimer = flashDuration;
+
+            jumpDspTime = DededeJump2.Instance.music.time;
+            long delay = jumpDspTime - markerDspTime;
+            //UnityEngine.Debug.Log($"マーカー：{markerDspTime},ひかる : {jumpDspTime},遅延: {delay} ");
+        }
+
+        // フラッシュ終了処理
+        if (flashTimer > 0f)
         {
-            // 裏打ちチャンス発生
+            flashTimer -= Time.deltaTime;
+            if (flashTimer <= 0f)
+            {
+                rend.material.color = originalColor;
+            }
         }
     }
 }

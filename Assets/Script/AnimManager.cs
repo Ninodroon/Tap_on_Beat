@@ -18,7 +18,8 @@ public class AnimManager : MonoBehaviour
 
     private void OnMarker(string tag)
     {
-        if (tag == "JUMP") animator.SetTrigger("Jump");
-        if (tag == "BACK") animator.SetTrigger("BackBeat");
+        //オブジェクトは基本JUMPマーカーが来た時だけ。
+        if (tag == "JUMP") { }//animator.SetTrigger("Jump");
+        //if (tag == "BACK") { }//animator.SetTrigger("BackBeat");
     }
 }

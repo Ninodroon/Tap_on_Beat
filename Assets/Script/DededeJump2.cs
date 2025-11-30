@@ -6,12 +6,6 @@ using UnityEngine;
 using System.Diagnostics;
 
 
-//マーカーベース、リセットあり
-//minCutWindowによって挙動が変わる。たまに強制リセットがかかるから、そのあたりいじったらいいかんじかも。
-//常にspace入力の受付　PerformBackBeat UpgradeJump。
-//座標移動の終わりと初めを一瞬同じにして、ジャンプがかくつかないようにする。
-//→spaceの入力にも少し幅ができるし、見た目も改善されるし、ある程度のずれをごまかせる。一旦、補間処理はなくしたい。
-
 public class DededeJump2 : MonoBehaviour
 {
     Stopwatch stopwatch = new Stopwatch();
@@ -25,12 +19,21 @@ public class DededeJump2 : MonoBehaviour
     public float superJumpHeight = 7f;
     [Range(0.05f, 0.45f)]
     public float jumpSpeedRatio = 0.24f;   // 上昇/下降に使う比率
+    bool isCutting = false;//確認のため。
+    private float lastLandingTime = -999f;   // 着地した瞬間の Time.time
+    public float landingWindow = 0.1f; // この時間内ならアップグレード可能
 
-    [Header("チェイン/カット設定")]
+    private bool isStartJump = false;
+    public Transform FirstDrum;
+    public Transform StartPos;
 
-    [Header("裏打ちSE（任意）")]
+    [Header("裏打ち")]
     public AudioSource seBackBeat;
+    public static DededeJump2 Instance { get; private set; }
     public CriAtomSource music;
+
+    long markerDspTime;
+    long jumpDspTime;
 
     // 内部
     private float beatInterval;//ビート間隔（秒）
@@ -43,9 +46,11 @@ public class DededeJump2 : MonoBehaviour
     private enum JumpType { Normal, High, Super, Ottoto }
     private JumpType currentJumpType = JumpType.Normal;
     private bool spacePressed;
+    private long spacePressedTime =0;
     private float backBeatTime;
     private float jumpTime;
     private int score;
+    private long CRImusic_DspTime;
 
     public float greatWindow = 0.05f;
     public float goodWindow = 0.1f;
@@ -68,48 +73,125 @@ public class DededeJump2 : MonoBehaviour
         if (currentSeq != null && currentSeq.IsActive()) currentSeq.Kill();
     }
 
+    void Awake()
+    {
+        Instance = this;
+    }
 
     void Start()
     {
-        groundY = transform.position.y;
-        beatInterval = (60f / bpm);// * 0.888f;  //120bpm
-        UnityEngine.Debug.Log($"beatInterval : {beatInterval}");
-        music?.Play();
+        //groundY = transform.position.y;
+        groundY = FirstDrum.transform.position.y - 0.2f;
+        beatInterval = (60f / bpm);//120bpmなら0.5mm秒
+                                    UnityEngine.Debug.Log($"beatInterval : {beatInterval}");
+        StartCoroutine(PlayMusicDelayed());
     }
 
+    IEnumerator PlayMusicDelayed()
+    {
+        yield return new WaitForSeconds(1f);
+        music.Play();
+    }
+
+    //20msごと
     void FixedUpdate()
     {
         //ジャンプ中かつ着地予定時刻を過ぎていたら、強制着地
         if (isMarker)
         {
+            jumpDspTime = music.time;
+            long delay = jumpDspTime - markerDspTime;
+            //UnityEngine.Debug.Log($"マーカー：{markerDspTime},ジャンプ : {jumpDspTime},遅延: {delay} ",this);
+
             StartJump();
             isMarker = false;
+            //CRImusic_DspTime = music.time;
+            //UnityEngine.Debug.Log($"dedede ジャンプマーカー　：{CRImusic_DspTime}");
         }
     }
 
+    //フレーム依存
     void Update()
     {
-        if (Input.GetKey(KeyCode.RightArrow))
-            transform.position += Vector3.right * Time.deltaTime * moveSpeed;
-        else if (Input.GetKey(KeyCode.LeftArrow))
-            transform.position += Vector3.left * Time.deltaTime * moveSpeed;
+        if (isStartJump)
+        {
+            if (Input.GetKey(KeyCode.RightArrow))
+                transform.position += Vector3.right * Time.deltaTime * moveSpeed;
+            else if (Input.GetKey(KeyCode.LeftArrow))
+                transform.position += Vector3.left * Time.deltaTime * moveSpeed;
+        }
 
-        if (Input.GetKeyDown(KeyCode.A)) currentJumpType = JumpType.Normal;
-        if (Input.GetKeyDown(KeyCode.S)) currentJumpType = JumpType.High;
-        if (Input.GetKeyDown(KeyCode.D)) currentJumpType = JumpType.Super;
+        //if (Input.GetKeyDown(KeyCode.A)) currentJumpType = JumpType.Normal;
+        //if (Input.GetKeyDown(KeyCode.S)) currentJumpType = JumpType.High;
+        //if (Input.GetKeyDown(KeyCode.D)) currentJumpType = JumpType.Super;
 
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            if (canBackBeat)
+            spacePressed = true;
+        }
+        else {
+            spacePressed = false;
+        }
+
+        if (canBackBeat && spacePressed)
+        {
+            PerformBackBeat();
+        }
+        else if(!canBackBeat)
+        {
+            if (spacePressed)
             {
-                PerformBackBeat();
-            }
-            else
-            {
+
+                float timeSinceLanding = Time.time - lastLandingTime;
+                if (timeSinceLanding <= landingWindow)
+                {
+                    UpgradeJumpType();
+                }
             }
         }
 
+
+
     }
+
+    //void Update()
+    //{
+    //    // 左右移動
+    //    if (Input.GetKey(KeyCode.RightArrow))
+    //        transform.position += Vector3.right * Time.deltaTime * moveSpeed;
+    //    else if (Input.GetKey(KeyCode.LeftArrow))
+    //        transform.position += Vector3.left * Time.deltaTime * moveSpeed;
+
+    //    // ジャンプタイプ変更
+    //    if (Input.GetKeyDown(KeyCode.A)) currentJumpType = JumpType.Normal;
+    //    if (Input.GetKeyDown(KeyCode.S)) currentJumpType = JumpType.High;
+    //    if (Input.GetKeyDown(KeyCode.D)) currentJumpType = JumpType.Super;
+
+    //    // バックビート入力
+    //    if (Input.GetKeyDown(KeyCode.Space))
+    //    {
+    //        if (canBackBeat)
+    //        {
+    //            PerformBackBeat();
+    //        }
+    //    }
+
+    //    // ────────────────
+    //    // マーカー受信 → 即ジャンプ
+    //    // ────────────────
+    //    if (isMarker)
+    //    {
+    //        jumpDspTime = music.time;
+    //        long delay = jumpDspTime - markerDspTime;
+
+    //        UnityEngine.Debug.Log(
+    //            $"マーカー：{markerDspTime}, ジャンプ : {jumpDspTime}, 遅延: {delay} ,isCutting : {isCutting}"
+    //        );
+
+    //        StartJump();
+    //        isMarker = false;
+    //    }
+    //}
 
     //マーカー拾われたときに呼ばれるコールバック
     private void OnSequencerCallback(string tag)
@@ -118,21 +200,105 @@ public class DededeJump2 : MonoBehaviour
         {
             //UnityEngine.Debug.Log($"Delta: {stopwatch.Elapsed.TotalMilliseconds}");
 
+            //CRImusic_DspTime = music.time;
+            //UnityEngine.Debug.Log($"dedede ジャンプマーカー　：{CRImusic_DspTime}");
+
+            //UnityEngine.Debug.Log($"Jump Marker : {Jump_DspTime},{stopwatch.Elapsed.TotalMilliseconds}");
+
+            markerDspTime = music.time;
+
             stopwatch.Reset();
             stopwatch.Start();
             isMarker = true;
-
         }
         else if (tag == "BACK")
         {
-            backBeatTime = Time.time; //裏打ちが完璧な値
+            //backBeatTime = Time.time; //裏打ちが完璧な値
+            long Back_DspTime = music.time;
+           // UnityEngine.Debug.Log($"裏打ちマーカー　：{Back_DspTime}");
+
             isMarker = false;
-           // UnityEngine.Debug.Log($"Delta: {stopwatch.Elapsed.TotalMilliseconds}");
 
         }
     }
 
     //ジャンプ----------------------------------------------------------------------
+
+    void UpgradeJumpType()
+    {
+        switch (currentJumpType)
+        {
+            case JumpType.Normal: currentJumpType = JumpType.High; break;
+            case JumpType.High: currentJumpType = JumpType.Super; break;
+            case JumpType.Super: break;
+        }
+    }
+
+    private void StartJump()
+    {
+        isJumping = true;
+
+        float total = beatInterval * 2f - 0.02f;
+        float move = 0.2f;//total * jumpSpeedRatio;
+        float stay = total - move * 2;
+
+        float targetY = groundY + GetJumpHeight();
+
+        var seq = DOTween.Sequence();
+
+        // ==========================================================
+        // ★ 1回目だけ、スタート台 → FirstDrum に 移動
+        // ==========================================================
+        if (isStartJump == false)
+        {
+            isStartJump = true;   // 次回からは通常ジャンプ
+
+            Vector3 start = transform.position;
+            Vector3 end = FirstDrum.transform.position;
+            Vector3 target = new Vector3(
+           FirstDrum.position.x, // X = 中間
+            StartPos.transform.position.y + GetJumpHeight(),               // Y = スタート台の高さ + ジャンプ量
+            0f                                          // Z = 0 固定
+             );
+            //(StartPos.transform.position.x + FirstDrum.transform.position.x) * 0.5f
+
+            seq.Append(StartPos.DOMove(target, move).SetEase(Ease.OutQuad))
+              .AppendCallback(() => canBackBeat = true)
+              .AppendInterval(stay)
+              .AppendCallback(() => canBackBeat = false)
+              .Append(transform.DOMove(FirstDrum.transform.position, move).SetEase(Ease.InQuad))
+              .AppendCallback(() =>
+              {
+                  isJumping = false;
+                  lastLandingTime = Time.time;
+              });
+
+            currentSeq = seq;
+            seq.Play();
+            return;
+        }
+
+        UnityEngine.Debug.Log($"ジャンプ開始: {beatInterval},targetY={targetY}, total={total}, move={move}, stay={stay}");
+
+        seq.Append(transform.DOMoveY(targetY, move).SetEase(Ease.OutQuad))
+       .AppendCallback(() => canBackBeat = true)
+       .AppendInterval(stay)
+       .AppendCallback(() => canBackBeat = false)
+       .Append(transform.DOMoveY(groundY, move).SetEase(Ease.InQuad))
+       .AppendCallback(() =>
+       {
+           isJumping = false;
+           lastLandingTime = Time.time;
+
+       });
+
+       if (transform.position.y == groundY) { isCutting = true;/* isJumping = false; UnityEngine.Debug.Log("groundYと同じ");*/ } else { isCutting = false; }
+
+        currentSeq = seq;
+        seq.Play();
+
+    }
+
     private float GetJumpHeight()
     {
         switch (currentJumpType)
@@ -142,46 +308,6 @@ public class DededeJump2 : MonoBehaviour
             case JumpType.Super: return superJumpHeight;
             default: return normalJumpHeight;
         }
-    }
-
-    private void StartJump()
-    {
-        isJumping = true;
-
-        // 2拍ジャンプ（上昇+滞空+下降）
-        MarkerDeltaTime -= Time.deltaTime;
-        
-
-       float total = beatInterval * 2f - 0.02f;
-        float move = total * jumpSpeedRatio;
-        float stay = total - move * 2;//dotweenは１フレーム先で動く。
-       
-        float targetY = groundY + GetJumpHeight();
-        // landingTime = Time.time + total;//着地予定時刻
-
-       // UnityEngine.Debug.Log($"ジャンプ開始: {beatInterval},targetY={targetY}, total={total}, move={move}, stay={stay}");
-
-        var seq = DOTween.Sequence();
-        seq.Append(transform.DOMoveY(targetY, move).SetEase(Ease.OutQuad));
-        seq.AppendCallback(() => canBackBeat = true);//裏打ち受付開始
-        seq.AppendInterval(stay);
-        seq.AppendCallback(() => canBackBeat = false);//裏打ち受付終了
-        seq.Append(transform.DOMoveY(groundY, move).SetEase(Ease.InQuad));
-
-        if (transform.position.y == groundY) { isJumping = false; /*UnityEngine.Debug.Log("groundYと同じ")*/; }
-
-        currentSeq = seq;
-        seq.Play();
-    }
-
-    // 中断着地（位置を強制的に地面へ）
-    private void ForceCutToGround()
-    {
-        if (currentSeq != null && currentSeq.IsActive()) currentSeq.Kill();
-        var p = transform.position; p.y = groundY; transform.position = p;
-        isJumping = false;
-        canBackBeat = false;
-
     }
 
     private void PerformBackBeat()

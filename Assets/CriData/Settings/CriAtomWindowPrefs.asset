@@ -14,4 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   searchPath: C:/work/Unity_project/25.7.9_MyProject/Assets/StreamingAssets
   outputAssetsRoot: 
-  showPrivateCue: 1
+  showPrivateCue: 0
