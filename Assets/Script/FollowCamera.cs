@@ -17,7 +17,7 @@ public class FollowCamera : MonoBehaviour
         // targetが設定されていない場合、DededeJumpを持つオブジェクトを自動検索
         if (target == null)
         {
-            DededeJump player = FindObjectOfType<DededeJump>();
+            DededeJump2 player = FindObjectOfType<DededeJump2>();
             if (player != null)
                 target = player.transform;
         }
@@ -28,8 +28,11 @@ public class FollowCamera : MonoBehaviour
         if (target == null) return;
 
         // X軸のみ追従、Y/Z軸は固定
-        Vector3 targetPos = new Vector3(target.position.x, transform.position.y, transform.position.z) + offset;
-
+        Vector3 targetPos = new Vector3(
+            target.position.x + offset.x,
+            transform.position.y,   // Y固定したいならこれ
+            offset.z                // ★固定Z（-10とか）
+        );
         if (smoothFollow)
         {
             // 滑らかに追従

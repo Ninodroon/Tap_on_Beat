@@ -17,7 +17,6 @@ public class Drum_MoveOn : MonoBehaviour
 
     void Start()
     {
-        Debug.Log("Drum_MoveOn: ‚¢‚«‚Ä‚é",this);
         startPos = transform.position;
     }
 
@@ -34,7 +33,7 @@ public class Drum_MoveOn : MonoBehaviour
     IEnumerator MoveSequence()
     {
         isMoving = true;
-        Debug.Log("Drum_MoveOn: “®‚¢‚Ä‚é", this);
+        //Debug.Log("Drum_MoveOn: “®‚¢‚Ä‚é", this);
         // s‚­
         while (Vector3.Distance(transform.position, targetPos.position) > 0.01f)
         {

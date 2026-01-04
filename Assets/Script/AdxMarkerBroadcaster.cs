@@ -2,6 +2,8 @@ using UnityEngine;
 using CriWare;
 using System;
 
+/// CRI Atomのマーカーイベントをシーン全体に通知するブロードキャスター
+
 public class AdxMarkerBroadcaster : MonoBehaviour
 {
     // 「マーカーが来たら通知する」ためのイベント
@@ -16,6 +18,7 @@ public class AdxMarkerBroadcaster : MonoBehaviour
     {
         // 無効化時に解除（安全）
         CriAtomExSequencer.OnCallback -= HandleMarker;
+        OnMarkerReceived = null;
     }
 
     private void HandleMarker(ref CriAtomExSequencer.CriAtomExSequenceEventInfo info)

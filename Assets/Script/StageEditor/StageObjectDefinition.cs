@@ -1,0 +1,26 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+//グリッドの大きさとオブジェクトの大きさを合わせる
+//オブジェクト１つでグリッド一つ、けどコイン起きにくくなるのでそこら辺の制限をきめること
+//オブジェクトの大きさを決めること
+//おけるとこだけ色付ける
+public enum StageObjectType
+{
+    Drum_Normal,
+    Drum_FlipOn,
+    Drum_MoveOn,    
+    Drum_Goal,
+    Drum_Break,
+    Coin,
+    Enemy
+}
+
+[CreateAssetMenu(menuName = "StageEditor/Object Definition")]
+public class StageObjectDefinition : ScriptableObject
+{
+    public StageObjectType type;
+    public GameObject prefab;
+    public Vector2 size = new Vector2(1.0f, 1.0f);
+}

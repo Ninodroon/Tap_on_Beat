@@ -14,6 +14,9 @@ public class BeatChecker : MonoBehaviour
     long markerDspTime;
     long jumpDspTime;
 
+    public bool beatChecker = false;
+    public bool ontheDrumChecker = false;
+    public bool isStayChecker = false;
 
     private void OnEnable()
     {
@@ -44,25 +47,55 @@ public class BeatChecker : MonoBehaviour
     // ---- 全ての描画は Update に固定 ----
     void Update()
     {
-        // 光らせる要求が来た
-        if (isMarker)
+        //マーカーで光る
+        if (beatChecker)
         {
-            isMarker = false;
+            if (isMarker)
+            {
+                isMarker = false;
 
-            rend.material.color = beatColor;
-            flashTimer = flashDuration;
+                rend.material.color = beatColor;
+                flashTimer = flashDuration;
 
-            jumpDspTime = DededeJump2.Instance.music.time;
-            long delay = jumpDspTime - markerDspTime;
-            //UnityEngine.Debug.Log($"マーカー：{markerDspTime},ひかる : {jumpDspTime},遅延: {delay} ");
+                jumpDspTime = DededeJump2.Instance.music.time;
+                long delay = jumpDspTime - markerDspTime;
+                //UnityEngine.Debug.Log($"マーカー：{markerDspTime},ひかる : {jumpDspTime},遅延: {delay} ");
+            }
+
+            // フラッシュ終了処理
+            if (flashTimer > 0f)
+            {
+                flashTimer -= Time.deltaTime;
+                if (flashTimer <= 0f)
+                {
+                    rend.material.color = originalColor;
+                }
+            }
         }
 
-        // フラッシュ終了処理
-        if (flashTimer > 0f)
+        if (ontheDrumChecker)
         {
-            flashTimer -= Time.deltaTime;
-            if (flashTimer <= 0f)
+
+            if (DededeJump2.Instance.ontheDrum)
             {
+                rend.material.color = Color.red;
+            }
+            else
+            {
+                rend.material.color = originalColor;
+            }
+        }
+
+        if (isStayChecker)
+        {
+            if (DededeJump2.Instance.currentJumpPhase == DededeJump2.JumpPhase.Stay)
+            {
+               // UnityEngine.Debug.Log($"Stayす");
+                rend.material.color = Color.red;
+            }
+            else
+            {
+                //UnityEngine.Debug.Log($"Stayじゃないです");
                 rend.material.color = originalColor;
             }
         }

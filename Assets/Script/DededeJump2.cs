@@ -1,14 +1,24 @@
 ﻿using CriWare;
+using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using System;
 using System.Collections;
-using UnityEngine;
 using System.Diagnostics;
+using System.Linq.Expressions;
+using System.Threading;
+using Unity.Burst.CompilerServices;
+using Unity.VisualScripting;
+using UnityEngine;
+using UnityEngine.Playables;
+using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
+using static UnityEngine.EventSystems.EventTrigger;
 
 
 public class DededeJump2 : MonoBehaviour
 {
     Stopwatch stopwatch = new Stopwatch();
+    public Animator animator;
 
     [Header("ビート設定")]
     public float bpm = 140f;
@@ -17,13 +27,14 @@ public class DededeJump2 : MonoBehaviour
     public float normalJumpHeight = 2f;
     public float highJumpHeight = 4f;
     public float superJumpHeight = 7f;
+    private float GoalJumpHeight = 20f;
     [Range(0.05f, 0.45f)]
     public float jumpSpeedRatio = 0.24f;   // 上昇/下降に使う比率
     bool isCutting = false;//確認のため。
-    private float lastLandingTime = -999f;   // 着地した瞬間の Time.time
-    public float landingWindow = 0.1f; // この時間内ならアップグレード可能
+    private float lastLandingTime = -999f;   // 着地した瞬間の Time.time　UpgradeJumpTypeするか判定するためにつかう
+    public float landingWindow = 10f; // この時間内ならアップグレード可能
 
-    private bool isStartJump = false;
+    [Header("スタート台から飛ぶならfalseにする")] public bool isStartJump = false;
     public Transform FirstDrum;
     public Transform StartPos;
 
@@ -39,27 +50,73 @@ public class DededeJump2 : MonoBehaviour
     private float beatInterval;//ビート間隔（秒）
     private float groundY;
     private bool isJumping = false;
-    private bool canBackBeat = false;
+    public bool canBackBeat = false;
     private float landingTime;
     private float lastJumpMarkerTime = -999f;
-    private Sequence currentSeq;
-    private enum JumpType { Normal, High, Super, Ottoto }
+    private DG.Tweening.Sequence currentSeq;
+    private bool ontheGoal = false;
+    public bool ontheDrum = false;
+    private Vector3 lastDrumPos;
+    public float ray_HorizontalOffset = 0.3f; // 横にどれだけ広げるか
+    private bool hitL = false;
+    private bool hitR = false;
+    private bool hit = false;
+    private bool isOnEdge = false;
+    int delayStartMusic = 5000;
+
+    float rayHeight = 20f;
+    float rayLength = 30f;
+    float x = 0;
+    float y = 0;
+    float z = 0;
+
+    [SerializeField]
+    private LayerMask groundMask;
+
+
+    private enum JumpType { Normal, High, Super, Ottoto, Goal };//ジャンプの高さ
     private JumpType currentJumpType = JumpType.Normal;
-    private bool spacePressed;
-    private long spacePressedTime =0;
+    public enum JumpPhase { Rising, Stay, Falling }//ジャンプのフェーズ
+    public JumpPhase currentJumpPhase = JumpPhase.Rising;
+
+    private enum PlayerState//プレイヤーの状態
+    {
+        START_STATE,
+        STAND_STATE,      // 通常プレイ中
+        FALL_STATE,
+        DAMAGE_STATE,
+        RESPAWN_STATE,   // リスポーン中（落下orダメージ→着地待ち）
+        GOAL_STATE,
+        TIMEOUT_STATE
+
+    }
+    private PlayerState playerState = PlayerState.START_STATE;
+
+
+    public float EdgeSize = 0.3f;//端っこと判定する範囲
+
+    private bool wasUpgradedThisCycle = false;
+    private bool Oncetime_Jump_onJumpMarker = false;
+    private bool lastJumpUpdate = false;
+    private long spacePressedTime = 0;
     private float backBeatTime;
     private float jumpTime;
     private int score;
+    private int playerHP = 100;
+    public int GetHP() => playerHP;
+    public int GetScore() => score;
+
     private long CRImusic_DspTime;
 
     public float greatWindow = 0.05f;
     public float goodWindow = 0.1f;
 
     public static event Action<string> OnMarkerReceived;
+   public float moveSpeed = 2.0f;
+    [Header("1bpmで進むマス")] public float moveDistance = 1.2f;
 
-    public float moveSpeed = 2.0f;
-
-    bool isMarker = false;
+    bool isJumpMarker = false;
+    bool isBackMarker = false;
     private float MarkerDeltaTime = 0f;
 
     //OnSequencerCallbackはグローバルイベントなので登録、解除しないといけない
@@ -81,15 +138,18 @@ public class DededeJump2 : MonoBehaviour
     void Start()
     {
         //groundY = transform.position.y;
-        groundY = FirstDrum.transform.position.y - 0.2f;
+        groundY = FirstDrum.transform.position.y;//実行するたびにインスペクターでいれたオブジェクトがリセットされる
         beatInterval = (60f / bpm);//120bpmなら0.5mm秒
-                                    UnityEngine.Debug.Log($"beatInterval : {beatInterval}");
-        StartCoroutine(PlayMusicDelayed());
+                                   //UnityEngine.Debug.Log($"beatInterval : {beatInterval}");
+       // moveSpeed = moveDistance; // bpmに応じて移動速度を調整
+        animator = GetComponent<Animator>();
+
+        PlayMusicDelayed().Forget();
     }
 
-    IEnumerator PlayMusicDelayed()
+    async UniTaskVoid PlayMusicDelayed()
     {
-        yield return new WaitForSeconds(1f);
+        await UniTask.Delay(delayStartMusic, cancellationToken: this.GetCancellationTokenOnDestroy());
         music.Play();
     }
 
@@ -97,101 +157,209 @@ public class DededeJump2 : MonoBehaviour
     void FixedUpdate()
     {
         //ジャンプ中かつ着地予定時刻を過ぎていたら、強制着地
-        if (isMarker)
+        if (isJumpMarker)
         {
             jumpDspTime = music.time;
             long delay = jumpDspTime - markerDspTime;
             //UnityEngine.Debug.Log($"マーカー：{markerDspTime},ジャンプ : {jumpDspTime},遅延: {delay} ",this);
 
-            StartJump();
-            isMarker = false;
+            /*if(playerState == PlayerState.Normal || playerState == PlayerState.Title) */
+            if (!wasUpgradedThisCycle && playerState == PlayerState.STAND_STATE)
+            {
+                currentJumpType = JumpType.Normal;
+            }
+
+            wasUpgradedThisCycle = false; // 次のサイクル用にリセット
+
+            if (playerState == PlayerState.RESPAWN_STATE)
+            {
+                SyncToMarker();
+            }
+            else
+            {
+                StartJump();
+            }
+
+            isJumpMarker = false;
             //CRImusic_DspTime = music.time;
             //UnityEngine.Debug.Log($"dedede ジャンプマーカー　：{CRImusic_DspTime}");
         }
     }
 
-    //フレーム依存
     void Update()
     {
-        if (isStartJump)
-        {
-            if (Input.GetKey(KeyCode.RightArrow))
-                transform.position += Vector3.right * Time.deltaTime * moveSpeed;
-            else if (Input.GetKey(KeyCode.LeftArrow))
-                transform.position += Vector3.left * Time.deltaTime * moveSpeed;
-        }
 
-        //if (Input.GetKeyDown(KeyCode.A)) currentJumpType = JumpType.Normal;
-        //if (Input.GetKeyDown(KeyCode.S)) currentJumpType = JumpType.High;
-        //if (Input.GetKeyDown(KeyCode.D)) currentJumpType = JumpType.Super;
+        Vector3 leftOrigin = new Vector3(transform.position.x - ray_HorizontalOffset, rayHeight, transform.position.z);
+        Vector3 rightOrigin = new Vector3(transform.position.x + ray_HorizontalOffset, rayHeight, transform.position.z);
+        Vector3 dir = Vector3.down;
 
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            spacePressed = true;
-        }
-        else {
-            spacePressed = false;
-        }
+        UnityEngine.Debug.DrawRay(leftOrigin, dir * rayLength, Color.blue);
+        UnityEngine.Debug.DrawRay(rightOrigin, dir * rayLength, Color.blue);
 
-        if (canBackBeat && spacePressed)
+        bool hitL = Physics.Raycast(leftOrigin, dir, out RaycastHit hitLinfo, rayLength);
+        bool hitR = Physics.Raycast(rightOrigin, dir, out RaycastHit hitRinfo, rayLength);
+
+        bool leftOnEdge = false;
+        bool rightOnEdge = false;
+
+        if (hitL && hitLinfo.collider.CompareTag("Drum"))
         {
-            PerformBackBeat();
-        }
-        else if(!canBackBeat)
-        {
-            if (spacePressed)
+            Bounds b = hitLinfo.collider.bounds;
+
+            // Ray の x がドラムの端付近か？
+            if (leftOrigin.x <= b.min.x || leftOrigin.x >= b.max.x)
             {
+                leftOnEdge = true;
+            }
+        }
 
-                float timeSinceLanding = Time.time - lastLandingTime;
-                if (timeSinceLanding <= landingWindow)
-                {
-                    UpgradeJumpType();
-                }
+        if (hitR && hitRinfo.collider.CompareTag("Drum"))
+        {
+            Bounds b = hitRinfo.collider.bounds;
+
+            if (rightOrigin.x <= b.min.x || rightOrigin.x >= b.max.x)
+            {
+                rightOnEdge = true;
+            }
+        }
+
+        isOnEdge = leftOnEdge || rightOnEdge;
+        UnityEngine.Debug.Log($"端にいるか：{isOnEdge}");
+
+        isOnEdge = false;
+        ontheDrum = true;
+
+        if (Input.GetKey(KeyCode.RightArrow))
+            transform.position += Vector3.right * moveSpeed * Time.deltaTime;
+        if (Input.GetKey(KeyCode.LeftArrow))
+            transform.position += Vector3.left * moveSpeed * Time.deltaTime;
+    }
+
+
+    private void OnTriggerEnter (Collider other)
+    {
+        if (other.CompareTag("Enemy"))
+        {
+            UnityEngine.Debug.Log("敵に当たった");//ログ出ない
+
+            var dmg = other.GetComponent<DamageSource>();
+            if (dmg == null) return;
+
+            TakeDamage(dmg.damage);
+        }
+        else { return; }
+   
+    }
+
+    void TakeDamage(int damage)
+    {
+        UnityEngine.Debug.Log("TakeDamage");
+
+        if (playerState == PlayerState.DAMAGE_STATE ||
+            playerState == PlayerState.RESPAWN_STATE)
+            return;
+
+        playerHP -= damage;
+        playerState = PlayerState.DAMAGE_STATE;
+
+        DamageSequence();
+    }
+
+    async UniTaskVoid DamageSequence()
+    {
+        // 点滅（2秒）
+        await BlinkAsync(2f);
+
+        // ドラムに戻す
+        DropToDrum();
+    }
+
+    async UniTask BlinkAsync(float duration)
+    {
+        float t = 0f;
+        var rend = GetComponentInChildren<Renderer>();
+
+        while (t < duration)
+        {
+            rend.enabled = !rend.enabled;
+            await UniTask.Delay(100);
+            t += 0.1f;
+        }
+        rend.enabled = true;
+    }
+
+
+
+    void CheckDrumCenter(RaycastHit hit)
+    {
+        Transform drum = hit.collider.transform.root;
+        Vector3 drumPos = drum.position;
+
+        // ② 着地フレームだけ軽く補正（吸着）
+        bool noInput =
+            !Input.GetKey(KeyCode.Space) &&
+            !Input.GetKey(KeyCode.RightArrow) &&
+            !Input.GetKey(KeyCode.LeftArrow);
+
+        if (!Input.anyKey)
+        {
+            if (currentJumpPhase == JumpPhase.Falling)
+            {
+                transform.position = Vector3.Lerp(
+                    transform.position,
+                    new Vector3(drumPos.x, transform.position.y, transform.position.z),
+                    0.001f
+                );
             }
         }
 
 
+        // ③ プレイヤー位置をドラムのローカル座標に変換
+        Vector3 localPos = drum.InverseTransformPoint(transform.position);
 
+        // ④ ドラムの「実サイズ」を取得
+        Collider drumCol = drum.GetComponent<Collider>();
+        float halfWidth = drumCol.bounds.extents.x; // ← 半径（ワールド）
+
+        // ⑥ 端判定
+        float absX = Mathf.Abs(localPos.x);
+        isOnEdge = absX > (halfWidth - EdgeSize);
+
+        // 状態更新
+        ontheDrum = true;
+
+        // デバッグ
+        //UnityEngine.Debug.Log(
+        //    $"プレイヤー − ドラム={absX:F2} / halfWidth={halfWidth:F2} / edge={EdgeSize} / isOnEdge={isOnEdge}"
+        //);
     }
 
-    //void Update()
-    //{
-    //    // 左右移動
-    //    if (Input.GetKey(KeyCode.RightArrow))
-    //        transform.position += Vector3.right * Time.deltaTime * moveSpeed;
-    //    else if (Input.GetKey(KeyCode.LeftArrow))
-    //        transform.position += Vector3.left * Time.deltaTime * moveSpeed;
 
-    //    // ジャンプタイプ変更
-    //    if (Input.GetKeyDown(KeyCode.A)) currentJumpType = JumpType.Normal;
-    //    if (Input.GetKeyDown(KeyCode.S)) currentJumpType = JumpType.High;
-    //    if (Input.GetKeyDown(KeyCode.D)) currentJumpType = JumpType.Super;
 
-    //    // バックビート入力
-    //    if (Input.GetKeyDown(KeyCode.Space))
-    //    {
-    //        if (canBackBeat)
-    //        {
-    //            PerformBackBeat();
-    //        }
-    //    }
+    void SpacePress()
+    {
+        //playerStateがリスポーン中は無効。Normalのときだけ
+        if (canBackBeat)
+        {
+            backBeatTime = Time.time;
+            PerformBackBeat();
+            return;
+        }
 
-    //    // ────────────────
-    //    // マーカー受信 → 即ジャンプ
-    //    // ────────────────
-    //    if (isMarker)
-    //    {
-    //        jumpDspTime = music.time;
-    //        long delay = jumpDspTime - markerDspTime;
+        // 着地直後の Upgrade ジャンプ
+        float timeSinceLanding = Time.time - lastLandingTime;
 
-    //        UnityEngine.Debug.Log(
-    //            $"マーカー：{markerDspTime}, ジャンプ : {jumpDspTime}, 遅延: {delay} ,isCutting : {isCutting}"
-    //        );
+       // UnityEngine.Debug.Log($"timeSinceLanding = {timeSinceLanding}landingWindow = {landingWindow}");
 
-    //        StartJump();
-    //        isMarker = false;
-    //    }
-    //}
+        if (timeSinceLanding <= landingWindow)
+        {
+            if (ontheGoal) { currentJumpType = JumpType.Goal; playerState = PlayerState.GOAL_STATE; /*ゴール用ジャンプを予約*/ }
+
+            UpgradeJumpType();
+            wasUpgradedThisCycle = true;
+        }
+    }
+
 
     //マーカー拾われたときに呼ばれるコールバック
     private void OnSequencerCallback(string tag)
@@ -209,33 +377,53 @@ public class DededeJump2 : MonoBehaviour
 
             stopwatch.Reset();
             stopwatch.Start();
-            isMarker = true;
+            isJumpMarker = true;
+            isBackMarker = false;
+            Oncetime_Jump_onJumpMarker = false;
         }
         else if (tag == "BACK")
         {
             //backBeatTime = Time.time; //裏打ちが完璧な値
-            long Back_DspTime = music.time;
-           // UnityEngine.Debug.Log($"裏打ちマーカー　：{Back_DspTime}");
+            //long Back_DspTime = music.time;
+            // UnityEngine.Debug.Log($"裏打ちマーカー　：{Back_DspTime}");
 
-            isMarker = false;
+            isJumpMarker = false;
+            isBackMarker = true;
 
         }
     }
 
     //ジャンプ----------------------------------------------------------------------
-
     void UpgradeJumpType()
     {
         switch (currentJumpType)
         {
             case JumpType.Normal: currentJumpType = JumpType.High; break;
             case JumpType.High: currentJumpType = JumpType.Super; break;
+            case JumpType.Goal: break;
             case JumpType.Super: break;
+        }
+        return;
+    }
+
+    private float GetJumpHeight()
+    {
+        switch (currentJumpType)
+        {
+            case JumpType.Normal: return normalJumpHeight;
+            case JumpType.High: return highJumpHeight;
+            case JumpType.Super: return superJumpHeight;
+            case JumpType.Goal: return GoalJumpHeight; // または専用の高さ
+            case JumpType.Ottoto: return normalJumpHeight;
+
+            default: return normalJumpHeight;
         }
     }
 
     private void StartJump()
     {
+        if (playerState == PlayerState.RESPAWN_STATE) return;// リスポーン中はジャンプ不可
+
         isJumping = true;
 
         float total = beatInterval * 2f - 0.02f;
@@ -246,15 +434,13 @@ public class DededeJump2 : MonoBehaviour
 
         var seq = DOTween.Sequence();
 
-        // ==========================================================
-        // ★ 1回目だけ、スタート台 → FirstDrum に 移動
-        // ==========================================================
-        if (isStartJump == false)
+        // 最初のジャンプ===================================================================
+        if (playerState == PlayerState.START_STATE)
         {
-            isStartJump = true;   // 次回からは通常ジャンプ
+            //isStartJump = true;
 
-            Vector3 start = transform.position;
-            Vector3 end = FirstDrum.transform.position;
+            // Vector3 start = transform.position;
+            // Vector3 end = FirstDrum.transform.position;
             Vector3 target = new Vector3(
            FirstDrum.position.x, // X = 中間
             StartPos.transform.position.y + GetJumpHeight(),               // Y = スタート台の高さ + ジャンプ量
@@ -262,65 +448,137 @@ public class DededeJump2 : MonoBehaviour
              );
             //(StartPos.transform.position.x + FirstDrum.transform.position.x) * 0.5f
 
-            seq.Append(StartPos.DOMove(target, move).SetEase(Ease.OutQuad))
-              .AppendCallback(() => canBackBeat = true)
-              .AppendInterval(stay)
-              .AppendCallback(() => canBackBeat = false)
+            Vector3 start = StartPos.position;
+            Vector3 end = FirstDrum.position;
+
+            float jumpPower = GetJumpHeight() * 1.4f;//まるさ
+            float duration = total;  //total            // 今の move をそのまま使う
+
+            seq.Append(transform.DOJump(
+                end,        // 着地点
+                target.y,  // 頂点の高さ
+                1,          // ジャンプ回数（1回）
+                duration    // 所要時間
+            ).SetEase(Ease.OutQuad)).AppendCallback(() => { canBackBeat = false; animator.SetTrigger("Trg_JumpUp"); currentJumpPhase = JumpPhase.Rising; })
+              .AppendInterval(stay).AppendCallback(() => { currentJumpPhase = JumpPhase.Stay; })
+              .AppendCallback(() => { canBackBeat = true; animator.SetTrigger("Trg_JumpLoop"); })
               .Append(transform.DOMove(FirstDrum.transform.position, move).SetEase(Ease.InQuad))
               .AppendCallback(() =>
               {
+                  canBackBeat = false;
+                  currentJumpPhase = JumpPhase.Falling;
+                  playerState = PlayerState.STAND_STATE;
+                  isStartJump = true;
                   isJumping = false;
                   lastLandingTime = Time.time;
+                  animator.SetTrigger("Trg_JumpDown");
+                  //UnityEngine.Debug.Log($"はじめのジャンプ完了");
               });
 
             currentSeq = seq;
             seq.Play();
-            return;
+        }
+        //ゴールジャンプ===================================================================
+        else if (playerState == PlayerState.GOAL_STATE)
+        {
+            targetY = 20.0f;
+            seq.Append(transform.DOMoveY(targetY, move).SetEase(Ease.OutQuad))
+               .AppendCallback(() => { animator.SetTrigger("Trg_JumpUp"); })
+               .AppendInterval(stay).AppendCallback(() => { currentJumpPhase = JumpPhase.Stay; })
+               .AppendCallback(() => {
+
+                   currentJumpPhase = JumpPhase.Rising;
+
+                   // データ保存してシーン遷移
+                   GameData.Instance.Score = score;
+                   GameData.Instance.HP = playerHP; // HPの変数名に合わせて
+
+                   UnityEngine.Debug.Log("ゴールジャンプ完了");
+
+                   LoadNextScene();
+
+               });//canBackBeat = false);
+                  // 着地なし
+
+
         }
 
-        UnityEngine.Debug.Log($"ジャンプ開始: {beatInterval},targetY={targetY}, total={total}, move={move}, stay={stay}");
+        // 通常ジャンプ===================================================================
+        else if (playerState == PlayerState.STAND_STATE)
+        {
+            // 上昇
+            seq.Append(
+                transform.DOMoveY(targetY, move).SetEase(Ease.OutQuad)
+            ).AppendCallback(() =>
+            {
+                // 上昇終わり → 滞空開始
+                animator.SetTrigger("Trg_JumpLoop");
+                canBackBeat = true;                 // ★ここから滞空
+                currentJumpPhase = JumpPhase.Stay;
+            });
 
-        seq.Append(transform.DOMoveY(targetY, move).SetEase(Ease.OutQuad))
-       .AppendCallback(() => canBackBeat = true)
-       .AppendInterval(stay)
-       .AppendCallback(() => canBackBeat = false)
-       .Append(transform.DOMoveY(groundY, move).SetEase(Ease.InQuad))
-       .AppendCallback(() =>
-       {
-           isJumping = false;
-           lastLandingTime = Time.time;
+            // 滞空
+            seq.AppendInterval(stay);
 
-       });
+            // 下降に入る瞬間でOFF & フェーズ変更
+            seq.AppendCallback(() =>
+            {
+                canBackBeat = false;                // ★滞空終了
+                currentJumpPhase = JumpPhase.Falling;
+                animator.SetTrigger("Trg_JumpDown");
+            });
 
-       if (transform.position.y == groundY) { isCutting = true;/* isJumping = false; UnityEngine.Debug.Log("groundYと同じ");*/ } else { isCutting = false; }
+            // 下降
+            seq.Append(
+                transform.DOMoveY(groundY, move).SetEase(Ease.InQuad)
+            ).OnComplete(() =>
+            {
+                isJumping = false;
+                lastLandingTime = Time.time;
 
+                if (!ontheDrum)
+                {
+                    StartFall();
+
+                    playerState = PlayerState.FALL_STATE;
+                }
+                else
+                {
+                    if (isOnEdge)
+                    {
+                        currentJumpType = JumpType.Ottoto;
+                    }
+                }
+            });
+
+        }
+
+        if (transform.position.y == groundY) { isCutting = true;/* isJumping = false; UnityEngine.Debug.Log("groundYと同じ");*/ } else { isCutting = false; }
         currentSeq = seq;
         seq.Play();
 
+        //UnityEngine.Debug.Log($"ジャンプ開始: {beatInterval},targetY={targetY}, groundY = {groundY},FirstDrum={FirstDrum.position.y}total={total}, move={move}, stay={stay}");
+        // UnityEngine.Debug.Log($"groundY = {groundY},FirstDrum={FirstDrum.position.y}");
+
     }
 
-    private float GetJumpHeight()
-    {
-        switch (currentJumpType)
-        {
-            case JumpType.Normal: return normalJumpHeight;
-            case JumpType.High: return highJumpHeight;
-            case JumpType.Super: return superJumpHeight;
-            default: return normalJumpHeight;
-        }
-    }
+
+
 
     private void PerformBackBeat()
     {
-        float error = Time.time - backBeatTime;//誤差
+        float error = Time.time - backBeatTime;
         JudgeType judge = Judge(error);
 
         if (judge != JudgeType.MISS)
         {
             int bonus = judge == JudgeType.GREAT ? 100 : 50;
             score += bonus;
-            UnityEngine.Debug.Log($"裏打ち {judge} +{bonus}");
+
+            // エフェクト表示
+            JudgeEffectManager.Instance.ShowJudge(judge);
         }
+       // UnityEngine.Debug.Log($"裏打ち入力! 評価 :{judge} 合計スコア：{score}");
 
         canBackBeat = false;
     }
@@ -332,5 +590,138 @@ public class DededeJump2 : MonoBehaviour
         if (abs <= goodWindow) return JudgeType.GOOD;
         return JudgeType.MISS;
     }
+    async UniTaskVoid LoadNextScene()
+    {
+        music.Stop();
+        await UniTask.Delay(2000);
+        await SceneManager.LoadSceneAsync("ResultScene");
+    }
+
+
+
+    //void CheckLanding()
+    //{
+    //    UnityEngine.Debug.Log($"CheckLanding");
+    //    // 足元座標
+    //    Vector3 footPos = transform.position + Vector3.down;
+    //    Vector3 dir = Vector3.down;
+    //    float dist = 10.0f;
+
+    //    //Ray ray = new Ray(footPos, dir);
+
+    //    //bool hitSomething = Physics.Raycast(ray, out RaycastHit hit, dist);
+    //    //UnityEngine.Debug.DrawRay(ray.origin, ray.direction * dist, Color.red, 10.0f);
+
+    //    bool isGrounded = Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, 10f);
+    //    UnityEngine.Debug.DrawRay(transform.position, Vector3.down * 10f, Color.red);
+
+
+    //    if (!isGrounded)
+    //    {
+    //        StartFall();
+    //    }
+    //}
+
+
+
+
+    void StartFall()
+    {
+        UnityEngine.Debug.Log($"落ちた");
+
+        playerState = PlayerState.FALL_STATE;
+
+        DOTween.Kill(transform); // もし残った Tween があれば停止
+
+
+        transform.DOMoveY(transform.position.y - 9f, 0.8f)
+            .SetEase(Ease.InQuad)
+            .OnComplete(() => {
+                StartRespawn();
+            });
+    }
+
+    void StartRespawn()
+    {
+        playerState = PlayerState.RESPAWN_STATE;
+        currentJumpType = JumpType.Normal;
+
+        Vector3 respawnPos = new Vector3(lastDrumPos.x, lastDrumPos.y + normalJumpHeight, lastDrumPos.z);
+        DOTween.Kill(transform);
+        transform.position = respawnPos;
+
+        DOVirtual.DelayedCall(1f, () =>
+        {
+            DropToDrum();
+        });
+    }
+
+    void DropToDrum()
+    {
+        UnityEngine.Debug.Log("DropToDrum");
+        
+
+        Vector3 landPos = new Vector3(
+            lastDrumPos.x,
+            lastDrumPos.y,
+            transform.position.z
+        );
+
+        DOTween.Kill(transform);
+
+        transform.DOMove(landPos, 0.5f)
+            .SetEase(Ease.InQuad)
+            .OnComplete(() =>
+            {
+                StartRespawnJump();
+            });
+    }
+
+
+    void StartRespawnJump()
+    {
+        if (playerState == PlayerState.FALL_STATE) { UnityEngine.Debug.Log("ダメージなのでStartRespawnJump()をスキップ"); playerState = PlayerState.STAND_STATE; return; }
+
+        //落下したときに、targetYからリスポーン
+        playerState = PlayerState.RESPAWN_STATE;
+        float targetY = groundY + normalJumpHeight;
+
+        transform.DOMoveY(targetY, 0.3f)
+            .SetEase(Ease.OutQuad)
+            .OnComplete(() =>
+            {
+                // 滞空して次のマーカーを待つ
+
+            });
+        //もしかしてStartRespawnJumpいらない？！
+    }
+
+    void SyncToMarker()
+    {
+        float move = 0.2f;
+        float total = beatInterval * 2f - 0.02f;
+        float stay = total - move * 2;
+
+        var seq = DOTween.Sequence();
+        seq.AppendCallback(() => { canBackBeat = true; currentJumpPhase = JumpPhase.Stay; })
+           .AppendInterval(stay)
+           .AppendCallback(() => { canBackBeat = false; currentJumpPhase = JumpPhase.Falling; })
+           .Append(transform.DOMoveY(groundY, move).SetEase(Ease.InQuad))
+           .OnComplete(() =>
+           {
+               playerState = PlayerState.STAND_STATE;
+               lastLandingTime = Time.time;
+               isJumping = false;
+           });
+
+        currentSeq = seq;
+        seq.Play();
+    }
+    //さっきいたドラムの上(取得しとく。)で、normalJumpHeightの高さにリスポーンして１秒待って、
+    //DropToDrum()で、そのまま真下のドラムに着地するケースと、lastDrumPosに向かって弧を描いて着地するケースが欲しい。落下とダメージに対応したい。
+
+    //startjump()のロジックのように、jumpマーカーに間に合うように着地したい。
+    //リスポーン挙動はマーカー基準ではないのでどんなbpmでも、落下～リスポーン～ドラム上に降りる速さは同じ。＊リスポーン時の着地でspaceは無効にする。
+
 
 }
