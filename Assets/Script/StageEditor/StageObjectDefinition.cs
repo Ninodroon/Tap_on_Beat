@@ -22,5 +22,7 @@ public class StageObjectDefinition : ScriptableObject
 {
     public StageObjectType type;
     public GameObject prefab;
-    public Vector2 size = new Vector2(1.0f, 1.0f);
+    public Vector2Int size = new Vector2Int(1, 1);
+    
+
 }

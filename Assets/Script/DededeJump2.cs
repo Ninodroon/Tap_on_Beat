@@ -40,7 +40,7 @@ public class DededeJump2 : MonoBehaviour
 
     [Header("裏打ち")]
     public AudioSource seBackBeat;
-    public static DededeJump2 Instance { get; private set; }
+    public static DededeJump2 Instance { get; private set; }    
     public CriAtomSource music;
 
     long markerDspTime;
@@ -112,8 +112,8 @@ public class DededeJump2 : MonoBehaviour
     public float goodWindow = 0.1f;
 
     public static event Action<string> OnMarkerReceived;
-   public float moveSpeed = 2.0f;
-    [Header("1bpmで進むマス")] public float moveDistance = 1.2f;
+    private float moveSpeed = 2.0f;
+    [Header("1bpmで進むマス")] public float moveDistance = 2.3f;
 
     bool isJumpMarker = false;
     bool isBackMarker = false;
@@ -141,7 +141,12 @@ public class DededeJump2 : MonoBehaviour
         groundY = FirstDrum.transform.position.y;//実行するたびにインスペクターでいれたオブジェクトがリセットされる
         beatInterval = (60f / bpm);//120bpmなら0.5mm秒
                                    //UnityEngine.Debug.Log($"beatInterval : {beatInterval}");
-       // moveSpeed = moveDistance; // bpmに応じて移動速度を調整
+        moveSpeed = moveDistance; // bpmに応じて移動速度を調整
+
+        float twoBwats = beatInterval * 2;
+        moveSpeed = (moveDistance * moveDistance)/twoBwats;
+        UnityEngine.Debug.Log($"moveSpeed = {moveSpeed}");
+
         animator = GetComponent<Animator>();
 
         PlayMusicDelayed().Forget();
@@ -186,12 +191,23 @@ public class DededeJump2 : MonoBehaviour
         }
     }
 
+
     void Update()
     {
+        UnityEngine.Debug.Log($"playerstate = {playerState}");
 
-        Vector3 leftOrigin = new Vector3(transform.position.x - ray_HorizontalOffset, rayHeight, transform.position.z);
-        Vector3 rightOrigin = new Vector3(transform.position.x + ray_HorizontalOffset, rayHeight, transform.position.z);
+        ontheDrum = true;
+        //レイのスタート位置をプレイヤーのpositionにしてたけど、Dotweenとpositionはフレーム境界の微妙な差があり綺麗に同期してないので、レイ発射位置のy軸は固定したい
+        x = transform.position.x;
+        y = rayHeight;
+        z = transform.position.z;
+
+        Vector3 leftOrigin = new Vector3(x - ray_HorizontalOffset, y, z);
+        Vector3 rightOrigin = new Vector3(x + ray_HorizontalOffset, y, z);
         Vector3 dir = Vector3.down;
+
+        Collider col = GetComponent<Collider>();
+        col.enabled = false; //自分を無視
 
         UnityEngine.Debug.DrawRay(leftOrigin, dir * rayLength, Color.blue);
         UnityEngine.Debug.DrawRay(rightOrigin, dir * rayLength, Color.blue);
@@ -199,42 +215,61 @@ public class DededeJump2 : MonoBehaviour
         bool hitL = Physics.Raycast(leftOrigin, dir, out RaycastHit hitLinfo, rayLength);
         bool hitR = Physics.Raycast(rightOrigin, dir, out RaycastHit hitRinfo, rayLength);
 
-        bool leftOnEdge = false;
-        bool rightOnEdge = false;
+        bool leftDrum = hitL && IsValidGround(hitLinfo.collider);
+        bool rightDrum = hitR && IsValidGround(hitRinfo.collider);
 
-        if (hitL && hitLinfo.collider.CompareTag("Drum"))
+        col.enabled = true;//自分戻す
+        //UnityEngine.Debug.Log($"★ontheDrum : {ontheDrum}　★isOnEdge : {isOnEdge}");
+
+        //左のみがドラムに触れてるかつ右はドラム以外を取得したか何も取得してないとき
+        if (leftDrum != rightDrum || !leftDrum && rightDrum)
         {
-            Bounds b = hitLinfo.collider.bounds;
-
-            // Ray の x がドラムの端付近か？
-            if (leftOrigin.x <= b.min.x || leftOrigin.x >= b.max.x)
-            {
-                leftOnEdge = true;
-            }
+            ontheDrum = true;
+            ontheGoal = false;
+            isOnEdge = false;
+        }
+        else if (!leftDrum && !rightDrum)
+        {
+            ontheDrum = false;
+            ontheGoal = false;
+            isOnEdge = false;
+        }
+        else if (leftDrum && rightDrum)
+        {
+            ontheDrum = true;
+            ontheGoal = false;
+            isOnEdge = false;
         }
 
-        if (hitR && hitRinfo.collider.CompareTag("Drum"))
+        // 横移動
+        if (playerState == PlayerState.STAND_STATE)
         {
-            Bounds b = hitRinfo.collider.bounds;
 
-            if (rightOrigin.x <= b.min.x || rightOrigin.x >= b.max.x)
+            if (Input.GetKey(KeyCode.RightArrow))
             {
-                rightOnEdge = true;
+                transform.position += Vector3.right * Time.deltaTime * moveSpeed;
+                //UnityEngine.Debug.Log($"右きー押されてる");
+            }
+            else if (Input.GetKey(KeyCode.LeftArrow))
+                transform.position += Vector3.left * Time.deltaTime * moveSpeed;
+
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                //UnityEngine.Debug.Log($"スペースキー押された");
+
+                SpacePress();
+            }
+            else
+            {
+                if (Oncetime_Jump_onJumpMarker == false)
+                    lastJumpUpdate = false;
             }
         }
-
-        isOnEdge = leftOnEdge || rightOnEdge;
-        UnityEngine.Debug.Log($"端にいるか：{isOnEdge}");
-
-        isOnEdge = false;
-        ontheDrum = true;
-
-        if (Input.GetKey(KeyCode.RightArrow))
-            transform.position += Vector3.right * moveSpeed * Time.deltaTime;
-        if (Input.GetKey(KeyCode.LeftArrow))
-            transform.position += Vector3.left * moveSpeed * Time.deltaTime;
     }
-
+    bool IsValidGround(Collider col)
+    {
+        return col.CompareTag("Drum") || col.CompareTag("Drum_Goal");
+    }
 
     private void OnTriggerEnter (Collider other)
     {

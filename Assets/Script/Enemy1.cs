@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
+using UnityEditor;
 using UnityEngine;
 
 public class Enemy1 : MonoBehaviour
@@ -32,6 +33,7 @@ public class Enemy1 : MonoBehaviour
     {
         if (other.gameObject.CompareTag("Player"))
         {
+            
             // UniTask を返すメソッドを await して終了まで待つ（例: 2秒間点滅）
             await Blink(2f);
         }
