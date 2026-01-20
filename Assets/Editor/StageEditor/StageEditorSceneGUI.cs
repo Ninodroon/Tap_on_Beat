@@ -1,21 +1,11 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-
-//シーンビューでのステージエディタのGUI制御。マウス位置取得、オブジェクト配置など。
-
-/*
-1.SceneGUI: マウス位置→ワールド座標→グリッドセル番号に変換
-2.SceneGUI: セル番号から配置プレビュー表示（青/赤）
-3.クリック時: セル番号をPlaceCurrent(baseCell)に渡す
-4.State: セル+サイズから占有範囲の中心座標を計算
-5.State: その座標にPrefab配置、占有情報登録 
- */
 
 [InitializeOnLoad]
 public static class StageEditorSceneGUI
 {
+    static readonly Color GRID_COLOR = new Color(0.4f, 0.8f, 1.0f, 0.15f);
+
     static StageEditorSceneGUI()
     {
         SceneView.duringSceneGui += OnSceneGUI;
@@ -28,7 +18,9 @@ public static class StageEditorSceneGUI
         Event e = Event.current;
         if (e == null) return;
 
-        // 右クリック削除
+        DrawBackgroundGrid(view);
+
+        // 右クリック: 削除
         if (e.type == EventType.MouseDown && e.button == 1 && !e.alt)
         {
             TryDeleteUnderMouse(e);
@@ -37,73 +29,109 @@ public static class StageEditorSceneGUI
             return;
         }
 
-        // マウスのワールド位置
         Vector3 world = GetMouseWorldPosition(e);
-
-        // ★ セル番号は world から取る（ここが重要）
         Vector2Int baseCell = StageGridUtil.WorldToGrid(world);
-        //Vector3 baseCell = StageGridUtil.WorldToGrid(world);
-        
-        // ★ セル中心を snapped とする（ここが重要）
         Vector3 snapped = StageGridUtil.GridToWorld(baseCell);
 
-        // size対応・赤/青プレビュー（あなたのDrawPlacementPreviewがセル塗り版ならOK）
         DrawPlacementPreview(snapped);
 
-        // 左クリック配置（置けるときだけ）
+        // 左クリック: 配置
         if (e.type == EventType.MouseDown && e.button == 0 && !e.alt)
         {
             if (StageEditorState.currentDef != null &&
                 StageEditorState.CanPlaceAt(baseCell, StageEditorState.currentDef.size))
             {
-                StageEditorState.PlaceCurrent(snapped);
-                //StageEditorState.PlaceCurrent(baseCell);//エラー
+                StageEditorState.PlaceCurrent(baseCell);
             }
-
             e.Use();
         }
 
         SceneView.RepaintAll();
     }
 
+    // カメラビュー全体にグリッドを描画
+    static void DrawBackgroundGrid(SceneView view)
+    {
+        Camera cam = view.camera;
+        if (cam == null) return;
+
+        Color prevColor = Handles.color;
+        var prevZTest = Handles.zTest;
+
+        // 画面四隅のワールド座標を取得
+        Vector3 w0 = ScreenToWorldOnZ0(cam, new Vector2(0, 0));
+        Vector3 w1 = ScreenToWorldOnZ0(cam, new Vector2(cam.pixelWidth, 0));
+        Vector3 w2 = ScreenToWorldOnZ0(cam, new Vector2(cam.pixelWidth, cam.pixelHeight));
+        Vector3 w3 = ScreenToWorldOnZ0(cam, new Vector2(0, cam.pixelHeight));
+
+        float minX = Mathf.Min(w0.x, w1.x, w2.x, w3.x);
+        float maxX = Mathf.Max(w0.x, w1.x, w2.x, w3.x);
+        float minY = Mathf.Min(w0.y, w1.y, w2.y, w3.y);
+        float maxY = Mathf.Max(w0.y, w1.y, w2.y, w3.y);
+
+        float stepX = StageGridUtil.GRID_X;
+        float stepY = StageGridUtil.GRID_Y;
+
+        // 余白追加
+        float padX = stepX * 2f;
+        float padY = stepY * 2f;
+        minX -= padX; maxX += padX;
+        minY -= padY; maxY += padY;
+
+        // グリッド開始・終了座標
+        float startX = Mathf.Floor(minX / stepX) * stepX;
+        float endX = Mathf.Ceil(maxX / stepX) * stepX;
+        float startY = Mathf.Floor(minY / stepY) * stepY;
+        float endY = Mathf.Ceil(maxY / stepY) * stepY;
+
+        Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
+        Handles.color = GRID_COLOR;
+
+        // 縦線
+        for (float x = startX; x <= endX; x += stepX)
+            Handles.DrawLine(
+                new Vector3(x, startY, StageGridUtil.FIXED_Z),
+                new Vector3(x, endY, StageGridUtil.FIXED_Z));
+
+        // 横線
+        for (float y = startY; y <= endY; y += stepY)
+            Handles.DrawLine(
+                new Vector3(startX, y, StageGridUtil.FIXED_Z),
+                new Vector3(endX, y, StageGridUtil.FIXED_Z));
+
+        Handles.color = prevColor;
+        Handles.zTest = prevZTest;
+    }
+
+    // スクリーン座標からZ=0平面上のワールド座標を取得
+    static Vector3 ScreenToWorldOnZ0(Camera cam, Vector2 screenPos)
+    {
+        Ray ray = cam.ScreenPointToRay(screenPos);
+        Plane plane = new Plane(Vector3.forward, Vector3.zero);
+        return plane.Raycast(ray, out float enter) ? ray.GetPoint(enter) : Vector3.zero;
+    }
+
+    // マウス位置のワールド座標を取得
+    static Vector3 GetMouseWorldPosition(Event e)
+    {
+        Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
+        Plane plane = new Plane(Vector3.forward, Vector3.zero);
+        return plane.Raycast(ray, out float enter) ? ray.GetPoint(enter) : Vector3.zero;
+    }
+
+    // マウス下のオブジェクトを削除
     static void TryDeleteUnderMouse(Event e)
     {
         Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
-
         if (Physics.Raycast(ray, out RaycastHit hit, 9999f))
         {
-            // 配置物（StagePlacedObject）を持ってるやつだけ消す
             var placed = hit.collider.GetComponentInParent<StagePlacedObject>();
             if (placed != null)
                 StageEditorState.DeletePlaced(placed.gameObject);
         }
     }
 
-    static Vector3 GetMouseWorldPosition(Event e)
-    {
-        Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
-        Plane plane = new Plane(Vector3.forward, Vector3.zero);
-
-        if (plane.Raycast(ray, out float enter))
-            return ray.GetPoint(enter);
-
-        return Vector3.zero;
-    }
-
-    static void DrawSnapPreview(Vector3 pos)
-    {
-        Handles.color = Color.cyan;
-        Handles.DrawWireCube(
-            pos,
-            new Vector3(
-                StageGridUtil.GRID_X,
-                StageGridUtil.GRID_Y,
-                0.01f
-            )
-        );
-    }
-
-    //おけるマスを表示する
+    // 配置プレビューを描画
     static void DrawPlacementPreview(Vector3 snappedWorld)
     {
         if (StageEditorState.currentDef == null) return;
@@ -111,28 +139,21 @@ public static class StageEditorSceneGUI
         Vector2Int baseCell = StageGridUtil.WorldToGrid(snappedWorld);
         Vector2Int size = StageEditorState.currentDef.size;
 
-        bool canPlaceAll = StageEditorState.CanPlaceAt(baseCell, size);
+        bool canPlace = StageEditorState.CanPlaceAt(baseCell, size);
 
-        // 視認性：置ける=青、置けない=赤
-        Color outline = canPlaceAll
-            ? new Color(0.2f, 0.8f, 1.0f, 0.95f)   // 青
-            : new Color(1.0f, 0.2f, 0.2f, 0.95f);  // 赤
+        Color outline = canPlace
+            ? new Color(0.2f, 0.8f, 1f, 0.95f)
+            : new Color(1f, 0.2f, 0.2f, 0.95f);
 
-        Color fill = canPlaceAll
-            ? new Color(0.2f, 0.8f, 1.0f, 0.12f)
-            : new Color(1.0f, 0.2f, 0.2f, 0.12f);
+        Color fill = canPlace
+            ? new Color(0.2f, 0.8f, 1f, 0.15f)
+            : new Color(1f, 0.2f, 0.2f, 0.15f);
 
-        // セル単位で塗る
         for (int y = 0; y < size.y; y++)
             for (int x = 0; x < size.x; x++)
             {
                 Vector2Int cell = new Vector2Int(baseCell.x + x, baseCell.y + y);
-
-                Vector3 cellWorld = StageGridUtil.GridToWorld(cell);
-
-                // 1セルの中心
-                //Vector3 center = cellWorld + new Vector3(StageGridUtil.GRID_X * 0.5f, StageGridUtil.GRID_Y * 0.5f, 0f);
-                Vector3 center = cellWorld;
+                Vector3 center = StageGridUtil.GridToWorld(cell);
 
                 float w = StageGridUtil.GRID_X;
                 float h = StageGridUtil.GRID_Y;
@@ -148,5 +169,4 @@ public static class StageEditorSceneGUI
                 Handles.DrawSolidRectangleWithOutline(rect, fill, outline);
             }
     }
-
 }
