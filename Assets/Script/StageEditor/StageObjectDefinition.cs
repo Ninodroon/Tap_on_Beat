@@ -23,6 +23,6 @@ public class StageObjectDefinition : ScriptableObject
     public StageObjectType type;
     public GameObject prefab;
     public Vector2Int size = new Vector2Int(1, 1);
-    
+    public bool isDrum;
 
 }

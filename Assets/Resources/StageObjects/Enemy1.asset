@@ -15,3 +15,4 @@ MonoBehaviour:
   type: 6
   prefab: {fileID: 8079136325690893939, guid: bd9d634a15a9305469ef8b18720e1712, type: 3}
   size: {x: 1, y: 1}
+  isDrum: 1

@@ -10,14 +10,21 @@ public static class StageEditorState
     public static StageObjectDefinition currentDef;
 
     private static HashSet<Vector2Int> occupied = new HashSet<Vector2Int>();
+    private static List<StagePlacedObject> drumCache = new List<StagePlacedObject>();
+
+    public static List<StagePlacedObject> GetDrumObjects() => drumCache;
 
     // 指定マスに配置可能か判定
     public static bool CanPlaceAt(Vector2Int baseCell, Vector2Int size)
     {
         for (int y = 0; y < size.y; y++)
             for (int x = 0; x < size.x; x++)
-                if (occupied.Contains(new Vector2Int(baseCell.x + x, baseCell.y + y)))
+            {
+                int cellX = baseCell.x + x;
+                int cellY = baseCell.y + y;
+                if (occupied.Contains(new Vector2Int(cellX, cellY)))
                     return false;
+            }
         return true;
     }
 
@@ -37,7 +44,7 @@ public static class StageEditorState
                 occupied.Remove(new Vector2Int(baseCell.x + x, baseCell.y + y));
     }
 
-    // フットプリント中心のワールド座標を計算
+    // プレビューマスの中心のワールド座標を計算
     public static Vector3 GetFootprintCenterWorld(Vector2Int baseCell, Vector2Int size)
     {
         Vector3 baseCenter = StageGridUtil.GridToWorld(baseCell);
@@ -69,24 +76,39 @@ public static class StageEditorState
         placed.definition = currentDef;
 
         RegisterOccupied(baseCell, size);
+
+        if (currentDef.isDrum)
+            drumCache.Add(placed);
     }
 
     // 配置済みオブジェクトを削除
     public static void DeletePlaced(GameObject go)
     {
         if (go == null) return;
+
         var p = go.GetComponent<StagePlacedObject>();
         if (p != null)
+        {
             UnregisterOccupied(p.baseCell, p.size);
+            drumCache.Remove(p);
+        }
+
         Object.DestroyImmediate(go);
     }
 
-    // シーン内の全配置オブジェクトから占有情報を再構築
+    // シーン内の全配置オブジェクトから占有情報とドラムキャッシュを再構築
     public static void RebuildOccupiedFromScene()
     {
         occupied.Clear();
+        drumCache.Clear();
+
         foreach (var p in Object.FindObjectsOfType<StagePlacedObject>())
+        {
             RegisterOccupied(p.baseCell, p.size);
+
+            if (p.definition != null && p.definition.isDrum)
+                drumCache.Add(p);
+        }
     }
 
     // 全配置オブジェクトをプレハブから再生成
@@ -115,7 +137,7 @@ public static class StageEditorState
 #endif
     }
 
-    // プレビューマスの中心座標から基準セルを逆算
+    // フットプリント中心座標から基準セルを逆算
     static Vector2Int FootprintCenterWorldToBaseCell(Vector3 centerWorld, Vector2Int size)
     {
         float dx = (size.x - 1) * StageGridUtil.GRID_X * 0.5f;

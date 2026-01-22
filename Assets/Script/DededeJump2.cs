@@ -62,7 +62,7 @@ public class DededeJump2 : MonoBehaviour
     private bool hitR = false;
     private bool hit = false;
     private bool isOnEdge = false;
-    int delayStartMusic = 5000;
+    int delayStartMusic = 0;
 
     float rayHeight = 20f;
     float rayLength = 30f;
@@ -194,7 +194,7 @@ public class DededeJump2 : MonoBehaviour
 
     void Update()
     {
-        UnityEngine.Debug.Log($"playerstate = {playerState}");
+        //UnityEngine.Debug.Log($"playerstate = {playerState}");
 
         ontheDrum = true;
         //レイのスタート位置をプレイヤーのpositionにしてたけど、Dotweenとpositionはフレーム境界の微妙な差があり綺麗に同期してないので、レイ発射位置のy軸は固定したい

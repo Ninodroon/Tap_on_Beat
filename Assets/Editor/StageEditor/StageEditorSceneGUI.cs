@@ -5,6 +5,7 @@ using UnityEngine;
 public static class StageEditorSceneGUI
 {
     static readonly Color GRID_COLOR = new Color(0.4f, 0.8f, 1.0f, 0.15f);
+    static readonly Color DRUM_COLUMN_COLOR = new Color(1.0f, 0.95f, 0.2f, 0.5f);
 
     static StageEditorSceneGUI()
     {
@@ -20,7 +21,11 @@ public static class StageEditorSceneGUI
 
         DrawBackgroundGrid(view);
 
-        // 右クリック: 削除
+        Vector3 world = GetMouseWorldPosition(e);
+        Vector2Int mouseCell = StageGridUtil.WorldToGrid(world);
+
+        DrawDrumColumnIfNeeded(view, mouseCell);
+
         if (e.type == EventType.MouseDown && e.button == 1 && !e.alt)
         {
             TryDeleteUnderMouse(e);
@@ -29,19 +34,14 @@ public static class StageEditorSceneGUI
             return;
         }
 
-        Vector3 world = GetMouseWorldPosition(e);
-        Vector2Int baseCell = StageGridUtil.WorldToGrid(world);
-        Vector3 snapped = StageGridUtil.GridToWorld(baseCell);
+        DrawPlacementPreview(mouseCell);
 
-        DrawPlacementPreview(snapped);
-
-        // 左クリック: 配置
         if (e.type == EventType.MouseDown && e.button == 0 && !e.alt)
         {
             if (StageEditorState.currentDef != null &&
-                StageEditorState.CanPlaceAt(baseCell, StageEditorState.currentDef.size))
+                StageEditorState.CanPlaceAt(mouseCell, StageEditorState.currentDef.size))
             {
-                StageEditorState.PlaceCurrent(baseCell);
+                StageEditorState.PlaceCurrent(mouseCell);
             }
             e.Use();
         }
@@ -49,7 +49,64 @@ public static class StageEditorSceneGUI
         SceneView.RepaintAll();
     }
 
-    // カメラビュー全体にグリッドを描画
+    static void DrawDrumColumnIfNeeded(SceneView view, Vector2Int mouseCell)
+    {
+        foreach (var p in StageEditorState.GetDrumObjects())
+        {
+            int xMin = p.baseCell.x;
+            int xMax = p.baseCell.x + p.size.x - 1;
+
+            if (mouseCell.x >= xMin && mouseCell.x <= xMax)
+            {
+                DrawVerticalColumn(view, mouseCell.x);
+                return;
+            }
+        }
+    }
+
+    static void DrawVerticalColumn(SceneView view, int cellX)
+    {
+        Camera cam = view.camera;
+        if (cam == null) return;
+
+        Color prevColor = Handles.color;
+        var prevZTest = Handles.zTest;
+
+        Vector3 w0 = ScreenToWorldOnZ0(cam, Vector2.zero);
+        Vector3 w1 = ScreenToWorldOnZ0(cam, new Vector2(0, cam.pixelHeight));
+
+        float minY = Mathf.Min(w0.y, w1.y);
+        float maxY = Mathf.Max(w0.y, w1.y);
+        float stepY = StageGridUtil.GRID_Y;
+
+        int yStart = Mathf.FloorToInt(minY / stepY) - 2;
+        int yEnd = Mathf.CeilToInt(maxY / stepY) + 2;
+
+        Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
+        Handles.color = DRUM_COLUMN_COLOR;
+
+        float w = StageGridUtil.GRID_X;
+        float h = StageGridUtil.GRID_Y;
+
+        for (int y = yStart; y <= yEnd; y++)
+        {
+            Vector3 center = StageGridUtil.GridToWorld(new Vector2Int(cellX, y));
+
+            Vector3[] rect =
+            {
+                center + new Vector3(-w/2, -h/2, 0),
+                center + new Vector3(-w/2,  h/2, 0),
+                center + new Vector3( w/2,  h/2, 0),
+                center + new Vector3( w/2, -h/2, 0),
+            };
+
+            Handles.DrawSolidRectangleWithOutline(rect, DRUM_COLUMN_COLOR, Color.clear);
+        }
+
+        Handles.color = prevColor;
+        Handles.zTest = prevZTest;
+    }
+
     static void DrawBackgroundGrid(SceneView view)
     {
         Camera cam = view.camera;
@@ -58,8 +115,7 @@ public static class StageEditorSceneGUI
         Color prevColor = Handles.color;
         var prevZTest = Handles.zTest;
 
-        // 画面四隅のワールド座標を取得
-        Vector3 w0 = ScreenToWorldOnZ0(cam, new Vector2(0, 0));
+        Vector3 w0 = ScreenToWorldOnZ0(cam, Vector2.zero);
         Vector3 w1 = ScreenToWorldOnZ0(cam, new Vector2(cam.pixelWidth, 0));
         Vector3 w2 = ScreenToWorldOnZ0(cam, new Vector2(cam.pixelWidth, cam.pixelHeight));
         Vector3 w3 = ScreenToWorldOnZ0(cam, new Vector2(0, cam.pixelHeight));
@@ -72,13 +128,11 @@ public static class StageEditorSceneGUI
         float stepX = StageGridUtil.GRID_X;
         float stepY = StageGridUtil.GRID_Y;
 
-        // 余白追加
-        float padX = stepX * 2f;
-        float padY = stepY * 2f;
-        minX -= padX; maxX += padX;
-        minY -= padY; maxY += padY;
+        minX -= stepX * 2f;
+        maxX += stepX * 2f;
+        minY -= stepY * 2f;
+        maxY += stepY * 2f;
 
-        // グリッド開始・終了座標
         float startX = Mathf.Floor(minX / stepX) * stepX;
         float endX = Mathf.Ceil(maxX / stepX) * stepX;
         float startY = Mathf.Floor(minY / stepY) * stepY;
@@ -87,23 +141,18 @@ public static class StageEditorSceneGUI
         Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
         Handles.color = GRID_COLOR;
 
-        // 縦線
         for (float x = startX; x <= endX; x += stepX)
-            Handles.DrawLine(
-                new Vector3(x, startY, StageGridUtil.FIXED_Z),
-                new Vector3(x, endY, StageGridUtil.FIXED_Z));
+            Handles.DrawLine(new Vector3(x, startY, StageGridUtil.FIXED_Z),
+                             new Vector3(x, endY, StageGridUtil.FIXED_Z));
 
-        // 横線
         for (float y = startY; y <= endY; y += stepY)
-            Handles.DrawLine(
-                new Vector3(startX, y, StageGridUtil.FIXED_Z),
-                new Vector3(endX, y, StageGridUtil.FIXED_Z));
+            Handles.DrawLine(new Vector3(startX, y, StageGridUtil.FIXED_Z),
+                             new Vector3(endX, y, StageGridUtil.FIXED_Z));
 
         Handles.color = prevColor;
         Handles.zTest = prevZTest;
     }
 
-    // スクリーン座標からZ=0平面上のワールド座標を取得
     static Vector3 ScreenToWorldOnZ0(Camera cam, Vector2 screenPos)
     {
         Ray ray = cam.ScreenPointToRay(screenPos);
@@ -111,7 +160,6 @@ public static class StageEditorSceneGUI
         return plane.Raycast(ray, out float enter) ? ray.GetPoint(enter) : Vector3.zero;
     }
 
-    // マウス位置のワールド座標を取得
     static Vector3 GetMouseWorldPosition(Event e)
     {
         Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
@@ -119,7 +167,6 @@ public static class StageEditorSceneGUI
         return plane.Raycast(ray, out float enter) ? ray.GetPoint(enter) : Vector3.zero;
     }
 
-    // マウス下のオブジェクトを削除
     static void TryDeleteUnderMouse(Event e)
     {
         Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
@@ -131,14 +178,11 @@ public static class StageEditorSceneGUI
         }
     }
 
-    // 配置プレビューを描画
-    static void DrawPlacementPreview(Vector3 snappedWorld)
+    static void DrawPlacementPreview(Vector2Int baseCell)
     {
         if (StageEditorState.currentDef == null) return;
 
-        Vector2Int baseCell = StageGridUtil.WorldToGrid(snappedWorld);
         Vector2Int size = StageEditorState.currentDef.size;
-
         bool canPlace = StageEditorState.CanPlaceAt(baseCell, size);
 
         Color outline = canPlace
