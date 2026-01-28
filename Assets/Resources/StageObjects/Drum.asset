@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: Drum
   m_EditorClassIdentifier: 
   type: 0
-  prefab: {fileID: 1590215850839347035, guid: facf23633572f9a4584debc94ac8d2ab, type: 3}
-  size: {x: 3, y: 4}
+  prefab: {fileID: 7286195306244112004, guid: ba58ad91496324d428940e813c343de7, type: 3}
+  size: {x: 5, y: 1}
   isDrum: 1

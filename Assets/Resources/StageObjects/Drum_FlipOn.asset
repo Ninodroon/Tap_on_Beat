@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 68812388f6f4d2d4cbb5fa373aef86a8, type: 3}
   m_Name: Drum_FlipOn
   m_EditorClassIdentifier: 
-  type: 1
-  prefab: {fileID: 2043646667047078778, guid: 5b89fea20bdd8764795117a0659c903f, type: 3}
-  size: {x: 1, y: 1}
+  type: 2
+  prefab: {fileID: 7286195306244112004, guid: e22379e5ec929ad4cabf1b74f4f1147f, type: 3}
+  size: {x: 5, y: 1}
   isDrum: 1

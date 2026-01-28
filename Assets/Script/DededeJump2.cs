@@ -132,12 +132,15 @@ public class DededeJump2 : MonoBehaviour
 
     void Awake()
     {
-        Instance = this;
+        Instance = this;       
+
     }
 
     void Start()
     {
         //groundY = transform.position.y;
+
+
         groundY = FirstDrum.transform.position.y;//実行するたびにインスペクターでいれたオブジェクトがリセットされる
         beatInterval = (60f / bpm);//120bpmなら0.5mm秒
                                    //UnityEngine.Debug.Log($"beatInterval : {beatInterval}");

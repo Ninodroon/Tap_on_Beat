@@ -54,6 +54,7 @@ public static class StageEditorState
     }
 
     // 現在選択中のオブジェクトを配置
+    // 現在選択中のオブジェクトを配置
     public static void PlaceCurrent(Vector2Int baseCell)
     {
         if (currentDef == null || currentDef.prefab == null) return;
@@ -64,10 +65,28 @@ public static class StageEditorState
         Vector3 pos = GetFootprintCenterWorld(baseCell, size);
 
 #if UNITY_EDITOR
+        // 親（StageObjects）を用意
+        const string ROOT_NAME = "StageObjects";
+        GameObject root = GameObject.Find(ROOT_NAME);
+        if (root == null)
+        {
+            root = new GameObject(ROOT_NAME);
+            Undo.RegisterCreatedObjectUndo(root, "Create StageObjects Root");
+        }
+
         var go = (GameObject)PrefabUtility.InstantiatePrefab(currentDef.prefab);
+        Undo.RegisterCreatedObjectUndo(go, "Place Stage Object");
 #else
-        var go = Object.Instantiate(currentDef.prefab);
+    GameObject root = GameObject.Find("StageObjects");
+    if (root == null) root = new GameObject("StageObjects");
+
+    var go = Object.Instantiate(currentDef.prefab);
 #endif
+
+        // 親に入れる（ワールド座標維持）
+        go.transform.SetParent(root.transform, true);
+
+        // 位置合わせ
         go.transform.position = pos;
 
         var placed = go.GetComponent<StagePlacedObject>() ?? go.AddComponent<StagePlacedObject>();
@@ -80,6 +99,7 @@ public static class StageEditorState
         if (currentDef.isDrum)
             drumCache.Add(placed);
     }
+
 
     // 配置済みオブジェクトを削除
     public static void DeletePlaced(GameObject go)
@@ -171,4 +191,33 @@ public static class StageEditorState
         RebuildOccupiedFromScene();
 #endif
     }
+
+    //1番左にあるオブジェクトをPlayerのFirstDrumにする
+    public static StagePlacedObject GetFirstDrumByMinX()
+    {
+        StagePlacedObject best = null;
+
+        foreach (var p in Object.FindObjectsOfType<StagePlacedObject>())
+        {
+            if (p == null || p.definition == null) continue;
+            if (!p.definition.isDrum) continue;
+
+            if (best == null)
+            {
+                best = p;
+                continue;
+            }
+
+            // x が小さい方が優先、同じなら y が小さい方
+            if (p.baseCell.x < best.baseCell.x ||
+                (p.baseCell.x == best.baseCell.x && p.baseCell.y < best.baseCell.y))
+            {
+                best = p;
+            }
+        }
+
+        return best;
+    }
+
+
 }

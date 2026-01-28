@@ -1,11 +1,20 @@
+using DG.Tweening.Core.Easing;
 using UnityEditor;
 using UnityEngine;
 
 [InitializeOnLoad]
 public static class StageEditorSceneGUI
-{
+{    
     static readonly Color GRID_COLOR = new Color(0.4f, 0.8f, 1.0f, 0.15f);
     static readonly Color DRUM_COLUMN_COLOR = new Color(1.0f, 0.95f, 0.2f, 0.5f);
+
+    static readonly float JUMP_H1 = 2.0f;
+    static readonly float JUMP_H2 = 4.0f;
+    static readonly float JUMP_H3 = 7.0f;
+
+    static readonly Color JUMP_LINE_1 = new Color(0.2f, 1.0f, 0.6f, 0.5f);
+    static readonly Color JUMP_LINE_2 = new Color(0.2f, 0.8f, 1.0f, 0.5f);
+    static readonly Color JUMP_LINE_3 = new Color(1.0f, 0.2f, 0.9f, 0.5f);
 
     static StageEditorSceneGUI()
     {
@@ -20,6 +29,7 @@ public static class StageEditorSceneGUI
         if (e == null) return;
 
         DrawBackgroundGrid(view);
+        DrawJumpHeightRowsFromPlayer(view);//‚³‚ê‚È‚¢
 
         Vector3 world = GetMouseWorldPosition(e);
         Vector2Int mouseCell = StageGridUtil.WorldToGrid(world);
@@ -47,6 +57,96 @@ public static class StageEditorSceneGUI
         }
 
         SceneView.RepaintAll();
+    }
+
+    static void DrawJumpHeightRows(SceneView view)
+    {
+        DrawHorizontalRow(view, WorldHeightToCellY(JUMP_H1), JUMP_LINE_1);
+        DrawHorizontalRow(view, WorldHeightToCellY(JUMP_H2), JUMP_LINE_2);
+        DrawHorizontalRow(view, WorldHeightToCellY(JUMP_H3), JUMP_LINE_3);
+    }
+    static void DrawJumpHeightRowsFromPlayer(SceneView view)
+    {
+        //var pManager = Object.FindObjectOfType<Manager>();
+        //if (pManager == null) return;
+
+        //DededeJump2 pPlayer = pManager.Player;
+        //if (pPlayer == null) return;
+
+        var pManager = Object.FindObjectOfType<Manager>();
+        if (pManager == null) return;
+
+        DededeJump2 playerGO = pManager.Player;
+        if (playerGO == null) return;
+
+        DededeJump2 pPlayer = playerGO.GetComponent<DededeJump2>();
+        if (pPlayer == null) return;
+
+        float adjust = 0.5f;
+
+        float h1 = pPlayer.normalJumpHeight + adjust;
+        float h2 = pPlayer.highJumpHeight + adjust;
+        float h3 = pPlayer.superJumpHeight + adjust;
+
+        int y1 = WorldHeightToCellY(h1);
+        int y2 = WorldHeightToCellY(h2);
+        int y3 = WorldHeightToCellY(h3);
+
+        //DrawHorizontalRow(view, WorldHeightToCellY(y1), JUMP_LINE_1);
+        //DrawHorizontalRow(view, WorldHeightToCellY(y2), JUMP_LINE_2);
+        //DrawHorizontalRow(view, WorldHeightToCellY(y3), JUMP_LINE_3);
+
+        DrawHorizontalRow(view, y1, JUMP_LINE_1);
+        DrawHorizontalRow(view, y2, JUMP_LINE_2);
+        DrawHorizontalRow(view, y3, JUMP_LINE_3);
+    }
+
+    static int WorldHeightToCellY(float worldY)
+    {
+        return StageGridUtil.WorldToGrid(new Vector3(0f, worldY, 0f)).y;
+    }
+
+    static void DrawHorizontalRow(SceneView view, int cellY, Color fill)
+    {
+        Camera cam = view.camera;
+        if (cam == null) return;
+
+        Color prevColor = Handles.color;
+        var prevZTest = Handles.zTest;
+
+        Vector3 w0 = ScreenToWorldOnZ0(cam, Vector2.zero);
+        Vector3 w1 = ScreenToWorldOnZ0(cam, new Vector2(cam.pixelWidth, 0));
+
+        float minX = Mathf.Min(w0.x, w1.x);
+        float maxX = Mathf.Max(w0.x, w1.x);
+        float stepX = StageGridUtil.GRID_X;
+
+        int xStart = Mathf.FloorToInt(minX / stepX) - 2;
+        int xEnd = Mathf.CeilToInt(maxX / stepX) + 2;
+
+        Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
+        Handles.color = fill;
+
+        float w = StageGridUtil.GRID_X;
+        float h = StageGridUtil.GRID_Y;
+
+        for (int x = xStart; x <= xEnd; x++)
+        {
+            Vector3 center = StageGridUtil.GridToWorld(new Vector2Int(x, cellY));
+
+            Vector3[] rect =
+            {
+                center + new Vector3(-w/2, -h/2, 0),
+                center + new Vector3(-w/2,  h/2, 0),
+                center + new Vector3( w/2,  h/2, 0),
+                center + new Vector3( w/2, -h/2, 0),
+            };
+
+            Handles.DrawSolidRectangleWithOutline(rect, fill, Color.clear);
+        }
+
+        Handles.color = prevColor;
+        Handles.zTest = prevZTest;
     }
 
     static void DrawDrumColumnIfNeeded(SceneView view, Vector2Int mouseCell)
@@ -170,11 +270,17 @@ public static class StageEditorSceneGUI
     static void TryDeleteUnderMouse(Event e)
     {
         Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
-        if (Physics.Raycast(ray, out RaycastHit hit, 9999f))
+        //if (Physics.Raycast(ray, out RaycastHit hit, 9999f))
+        if (Physics.Raycast(ray, out RaycastHit hit, 9999f, ~0, QueryTriggerInteraction.Collide))
         {
             var placed = hit.collider.GetComponentInParent<StagePlacedObject>();
             if (placed != null)
                 StageEditorState.DeletePlaced(placed.gameObject);
+
+            Debug.Log("Hit: " + hit.collider.name);
+        }
+        else {
+            Debug.Log("Raycast hit nothing");
         }
     }
 
