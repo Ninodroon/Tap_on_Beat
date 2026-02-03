@@ -16,7 +16,6 @@ public class AdxMarkerBroadcaster : MonoBehaviour
 
     private void OnDisable()
     {
-        // 無効化時に解除（安全）
         CriAtomExSequencer.OnCallback -= HandleMarker;
         OnMarkerReceived = null;
     }
@@ -26,8 +25,7 @@ public class AdxMarkerBroadcaster : MonoBehaviour
         if (info.tag !=null)
         {
             string tag = info.tag; // AtomCraftでつけた名前
-            //Debug.Log($"AdxMarkerBroadcaster マーカーr: {tag}");
-            OnMarkerReceived?.Invoke(tag); // ← ここで全体に「マーカー来たよ！」と発信
+            OnMarkerReceived?.Invoke(tag);
         }
     }
 }

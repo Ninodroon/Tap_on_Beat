@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+//ステージデータとして保存されるもの
 
 public class StagePlacedObject : MonoBehaviour
 {
@@ -9,3 +10,4 @@ public class StagePlacedObject : MonoBehaviour
     public StageObjectDefinition definition;
 
 }
+

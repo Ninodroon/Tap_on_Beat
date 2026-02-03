@@ -1,8 +1,13 @@
 using UnityEngine;
 using UnityEditor;
 
+
+
 public class ObjectPlacerWindow : EditorWindow
 {
+    StageDataAsset stageData;
+
+
     public GameObject prefab;        // 配置するPrefab
     public int count = 5;            // 配置個数
     public Vector3 startPos = Vector3.zero; // 配置開始位置
@@ -17,6 +22,41 @@ public class ObjectPlacerWindow : EditorWindow
     private void OnGUI()
     {
         GUILayout.Label("Prefab Placement Settings", EditorStyles.boldLabel);
+
+        {
+            GUILayout.Space(8);
+            GUILayout.Label("Stage Data", EditorStyles.boldLabel);
+
+            stageData = (StageDataAsset)EditorGUILayout.ObjectField(
+                "StageDataAsset",
+                stageData,
+                typeof(StageDataAsset),
+                false
+            );
+
+            using (new EditorGUI.DisabledScope(stageData == null))
+            {
+                GUILayout.BeginHorizontal();
+
+                //Asset -> Scene
+                if (GUILayout.Button("Load"))
+                {
+                    StageEditorState.LoadFromStageData(stageData);
+                    SceneView.RepaintAll();
+                }
+
+                //Scene -> Asset
+                if (GUILayout.Button("Save"))
+                {
+                    StageEditorState.SaveToStageData(stageData);
+                    EditorUtility.SetDirty(stageData);
+                    AssetDatabase.SaveAssets();
+                }
+
+                GUILayout.EndHorizontal();
+            }
+
+        }
 
         prefab = (GameObject)EditorGUILayout.ObjectField("Prefab", prefab, typeof(GameObject), false);
         count = EditorGUILayout.IntField("Count", count);

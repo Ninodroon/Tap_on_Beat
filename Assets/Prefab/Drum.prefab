@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 5213162756175366384}
   m_Layer: 3
   m_Name: HitCollider
-  m_TagString: Untagged
+  m_TagString: Drum
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -51,8 +51,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 2.8586779, y: 0.95851433, z: 1}
-  m_Center: {x: 1.4222722, y: 1.2314196, z: 0}
+  m_Size: {x: 2.9573355, y: 0.9585142, z: 2.9506009}
+  m_Center: {x: 1.4029698, y: 1.2314196, z: -0.00000011920929}
 --- !u!1001 &7628163008136561621
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -114,6 +114,11 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: ea38a3152a9e170429b4227f232d2cbf,
         type: 3}
       propertyPath: m_Name
+      value: Drum
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: ea38a3152a9e170429b4227f232d2cbf,
+        type: 3}
+      propertyPath: m_TagString
       value: Drum
       objectReference: {fileID: 0}
     m_RemovedComponents: []

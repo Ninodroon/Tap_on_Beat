@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 8413622732820105325}
   m_Layer: 3
   m_Name: HitCollider
-  m_TagString: Untagged
+  m_TagString: Drum
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -26,7 +26,7 @@ Transform:
   m_GameObject: {fileID: 3910926024046195674}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.03, y: 0.02, z: 0}
+  m_LocalPosition: {x: 0.081, y: 0.02, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -51,8 +51,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 2.8182855, y: 0.95851386, z: 1}
-  m_Center: {x: -0.0116558075, y: -0.020743057, z: 0}
+  m_Size: {x: 2.9652975, y: 0.95851386, z: 2.9423037}
+  m_Center: {x: -0.085161805, y: -0.020743072, z: 0.0048179626}
 --- !u!1001 &7628163008136561621
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -264,6 +264,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Layer
       value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: ea38a3152a9e170429b4227f232d2cbf,
+        type: 3}
+      propertyPath: m_TagString
+      value: Drum
       objectReference: {fileID: 0}
     - target: {fileID: 921391927218321214, guid: ea38a3152a9e170429b4227f232d2cbf,
         type: 3}
