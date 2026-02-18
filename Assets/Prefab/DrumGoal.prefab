@@ -51,8 +51,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 2.8182855, y: 1, z: 1}
-  m_Center: {x: -0.0116558075, y: 0, z: 0}
+  m_Size: {x: 2.8182857, y: 1, z: 2.8966074}
+  m_Center: {x: -0.011655862, y: 0, z: -0.013339337}
 --- !u!1001 &7628163008136561621
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -68,18 +68,33 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: ea38a3152a9e170429b4227f232d2cbf,
         type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.6722839
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: ea38a3152a9e170429b4227f232d2cbf,
+        type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.6722839
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: ea38a3152a9e170429b4227f232d2cbf,
+        type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1.6722839
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: ea38a3152a9e170429b4227f232d2cbf,
+        type: 3}
       propertyPath: m_LocalPosition.x
       value: -1.1032736
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: ea38a3152a9e170429b4227f232d2cbf,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.30120975
+      value: 0.30081
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: ea38a3152a9e170429b4227f232d2cbf,
         type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 0.0052744
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: ea38a3152a9e170429b4227f232d2cbf,
         type: 3}
@@ -258,12 +273,17 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: ea38a3152a9e170429b4227f232d2cbf,
         type: 3}
       propertyPath: m_Name
-      value: Drum 3
+      value: DrumGoal
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: ea38a3152a9e170429b4227f232d2cbf,
         type: 3}
       propertyPath: m_Layer
       value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: ea38a3152a9e170429b4227f232d2cbf,
+        type: 3}
+      propertyPath: m_TagString
+      value: Drum_Goal
       objectReference: {fileID: 0}
     - target: {fileID: 921391927218321214, guid: ea38a3152a9e170429b4227f232d2cbf,
         type: 3}
@@ -458,6 +478,10 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 1407835735264390947}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ea38a3152a9e170429b4227f232d2cbf,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: -7529538298837031382}
   m_SourcePrefab: {fileID: 100100000, guid: ea38a3152a9e170429b4227f232d2cbf, type: 3}
 --- !u!1 &7286195306244112004 stripped
 GameObject:
@@ -472,7 +496,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7286195306244112004}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 33b315e75cdf6904f926faf633f84ec8, type: 3}
   m_Name: 
@@ -493,7 +517,7 @@ MeshCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
@@ -565,6 +589,18 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &-7529538298837031382
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7286195306244112004}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c45bd257e4e1bf44bbce147aa3c85996, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!4 &7950564914332705854 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: ea38a3152a9e170429b4227f232d2cbf,

@@ -1,53 +1,71 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-
-/*
- ドラム
- プレイヤーが触れたら「指定速度で Start → Target → 元位置」に戻る
- */
 
 public class Drum_MoveOn : MonoBehaviour
 {
-    public Transform targetPos;
     Vector3 startPos;
-
-    public float moveSpeed = 3f;
+    public float moveDistance = 7.5f;
+    public float waitTime = 2f;
     bool isMoving = false;
+    int moveFrames = 0;
+    float waitTimer = 0f;
+    Vector3 targetPos;
+    bool isWaiting = false;
 
     void Start()
     {
         startPos = transform.position;
     }
 
-    private void OnTriggerEnter(Collider other)
+    void OnTriggerEnter(Collider other)
     {
         if (isMoving) return;
-
         if (other.CompareTag("Player"))
         {
-            StartCoroutine(MoveSequence());
+            targetPos = startPos + Vector3.right * moveDistance;
+            moveFrames = 0;
+            isMoving = true;
+            isWaiting = false;
+            waitTimer = 0f;
         }
     }
 
-    IEnumerator MoveSequence()
+    void FixedUpdate()
     {
-        isMoving = true;
-        //Debug.Log("Drum_MoveOn: 動いてる", this);
-        // 行く
-        while (Vector3.Distance(transform.position, targetPos.position) > 0.01f)
-        {
-            transform.position = Vector3.MoveTowards(transform.position, targetPos.position, moveSpeed * Time.deltaTime);
-            yield return null;
-        }
+        if (!isMoving) return;
 
-        // 戻る
-        while (Vector3.Distance(transform.position, startPos) > 0.01f)
+        if (!isWaiting)
         {
-            transform.position = Vector3.MoveTowards(transform.position, startPos, moveSpeed * Time.deltaTime);
-            yield return null;
-        }
+            moveFrames++;
 
-        isMoving = false;
+            if (moveFrames <= 7)
+            {
+                transform.position = Vector3.Lerp(startPos, targetPos, moveFrames / 7f);
+            }
+            else
+            {
+                transform.position = targetPos;
+                isWaiting = true;
+            }
+        }
+        else
+        {
+            waitTimer += Time.fixedDeltaTime;
+
+            if (waitTimer >= waitTime)
+            {
+                moveFrames++;
+                int returnFrame = moveFrames - 7;
+
+                if (returnFrame <= 7)
+                {
+                    transform.position = Vector3.Lerp(targetPos, startPos, returnFrame / 7f);
+                }
+                else
+                {
+                    transform.position = startPos;
+                    isMoving = false;
+                }
+            }
+        }
     }
 }

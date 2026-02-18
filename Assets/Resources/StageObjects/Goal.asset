@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 68812388f6f4d2d4cbb5fa373aef86a8, type: 3}
   m_Name: Goal
   m_EditorClassIdentifier: 
-  type: 0
-  prefab: {fileID: 4866806560373630626, guid: 583751cfcd181da47a5b48b09f0520bc, type: 3}
-  size: {x: 1, y: 1}
-  isDrum: 0
+  prefab: {fileID: 7286195306244112004, guid: 99c350cf4a9ff5f4db58dfd468fcad6b, type: 3}
+  size: {x: 9, y: 1}
+  isDrum: 1

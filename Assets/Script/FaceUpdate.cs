@@ -48,7 +48,8 @@ namespace UnityEngine.Rendering.Toon.Samples
             {
                 current = Mathf.Lerp(current, 0, delayWeight);
             }
-            anim.SetLayerWeight(1, current);
+            if (anim.layerCount > 1)
+                anim.SetLayerWeight(1, current);
         }
 
 

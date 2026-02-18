@@ -8,7 +8,7 @@ public class FollowCamera : MonoBehaviour
     public bool smoothFollow = true; // 滑らか追従のON/OFF
 
     [Header("オフセット")]
-    public Vector3 offset = new Vector3(0, 0, -10); // カメラのオフセット位置
+    private Vector3 offset = new Vector3(0, 0, -20); // カメラのオフセット位置
 
     private Vector3 velocity = Vector3.zero; // SmoothDamp用
 

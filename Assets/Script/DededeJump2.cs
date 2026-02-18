@@ -10,6 +10,7 @@ using Unity.Burst.CompilerServices;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Playables;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 using static UnityEngine.EventSystems.EventTrigger;
@@ -44,8 +45,9 @@ public class DededeJump2 : MonoBehaviour
     public static DededeJump2 Instance { get; private set; }
     public CriAtomSource music;
 
-    long markerDspTime;
-    long jumpDspTime;
+    long markerDspTime;//ジャンプマーカーのDspTime
+    long Jumpflag_DspTime;//ジャンプフラグのDspTime
+    long Start_JumpTime;//
 
     // 内部
     private float beatInterval;//ビート間隔（秒）
@@ -80,7 +82,7 @@ public class DededeJump2 : MonoBehaviour
     float z = 0;
 
     [SerializeField]
-    private LayerMask groundMask = LayerMask.GetMask("Drum");
+    private LayerMask groundMask;
 
     private RaycastHit hitLinfo;
     private RaycastHit hitRinfo;
@@ -121,7 +123,7 @@ public class DededeJump2 : MonoBehaviour
     private float backBeatTime;
     private float jumpTime;
     private int score;
-    private int playerHP = 100;
+    private int playerHP = 5;
     public int GetHP() => playerHP;
     public int GetScore() => score;
 
@@ -138,6 +140,7 @@ public class DededeJump2 : MonoBehaviour
     bool isBackMarker = false;
     private float MarkerDeltaTime = 0f;
 
+    bool lastOntheGoal = false;
     PlayerState lastPlayerState = PlayerState.START_STATE;
     JumpType lastcurrentJumpType = JumpType.Normal;
 
@@ -154,7 +157,8 @@ public class DededeJump2 : MonoBehaviour
     void Awake()
     {
         Instance = this;
-
+        //groundMask = LayerMask.GetMask("Drum");
+        groundMask = LayerMask.GetMask("Ground");
     }
 
     void Start()
@@ -188,9 +192,9 @@ public class DededeJump2 : MonoBehaviour
         //ジャンプ中かつ着地予定時刻を過ぎていたら、強制着地
         if (isJumpMarker)
         {
-            jumpDspTime = music.time;
-            long delay = jumpDspTime - markerDspTime;
-            //UnityEngine.Debug.Log($"マーカー：{markerDspTime},ジャンプ : {jumpDspTime},遅延: {delay} ",this);
+            Jumpflag_DspTime = music.time;
+            long delay = Jumpflag_DspTime - markerDspTime;
+            //UnityEngine.Debug.Log($"マーカー：{markerDspTime},ジャンプ : {Jumpflag_DspTime},遅延: {delay} ",this);//ここで遅延がおこるのはなぜ？
 
             /*if(playerState == PlayerState.Normal || playerState == PlayerState.Title) */
             if (!wasUpgradedThisCycle && playerState == PlayerState.STAND_STATE)
@@ -273,6 +277,8 @@ public class DededeJump2 : MonoBehaviour
             lastRightName = currentR;
         }
 
+        ontheGoal = false;
+
         //最後に乗ってたドラムの位置を保存
         if (ontheDrum)
         {
@@ -280,14 +286,19 @@ public class DededeJump2 : MonoBehaviour
             {
                 Transform drum = hitLinfo.collider.transform.root;
                 lastDrumPos = drum.position;
+                if (drum.CompareTag("Drum_Goal")) ontheGoal = true;
+
             }
-            else if (isrightDrum)
+            if (isrightDrum)
             {
                 Transform drum = hitRinfo.collider.transform.root;
                 lastDrumPos = drum.position;
-                //CheckDrumCenter(hitRinfo);
+                if (drum.CompareTag("Drum_Goal")) ontheGoal = true;
+
             }
         }
+
+        //UnityEngine.Debug.Log($"hitLinfo.collider.transform.root.name={hitLinfo.collider.transform.root.name}");
 
         // 横移動
         if (playerState == PlayerState.STAND_STATE)
@@ -303,7 +314,7 @@ public class DededeJump2 : MonoBehaviour
 
             if (Input.GetKeyDown(KeyCode.Space))
             {
-                UnityEngine.Debug.Log($"スペースキー押された");
+                //UnityEngine.Debug.Log($"スペースキー押された");
 
                 SpacePress();
             }
@@ -335,16 +346,10 @@ public class DededeJump2 : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Enemy"))
-        {
-            UnityEngine.Debug.Log("敵に当たった");//ログ出ない
 
-            var dmg = other.GetComponent<DamageSource>();
-            if (dmg == null) return;
+        if (!other.CompareTag("Enemy")) return;
 
-            TakeDamage(dmg.damage);
-        }
-        else { return; }
+        TakeDamage(1);
 
     }
 
@@ -365,24 +370,24 @@ public class DededeJump2 : MonoBehaviour
     async UniTaskVoid DamageSequence()
     {
         // 点滅（2秒）
-        await BlinkAsync(2f);
+        await BlinkAsync(2f, this.GetCancellationTokenOnDestroy());
 
         // ドラムに戻す
         DropToDrum();
     }
 
-    async UniTask BlinkAsync(float duration)
+    async UniTask BlinkAsync(float duration, CancellationToken ct)
     {
-        float t = 0f;
-        var rend = GetComponentInChildren<Renderer>();
+        var renderers = GetComponentsInChildren<Renderer>();
+        int count = Mathf.RoundToInt(duration / 0.1f);
 
-        while (t < duration)
+        for (int i = 0; i < count; i++)
         {
-            rend.enabled = !rend.enabled;
-            await UniTask.Delay(100);
-            t += 0.1f;
+            bool next = !renderers[0].enabled;
+            foreach (var r in renderers) r.enabled = next;
+            await UniTask.Delay(100, cancellationToken: ct);
         }
-        rend.enabled = true;
+        foreach (var r in renderers) r.enabled = true;
     }
 
 
@@ -446,12 +451,12 @@ public class DededeJump2 : MonoBehaviour
         // 着地直後の Upgrade ジャンプ
         float timeSinceLanding = Time.time - lastLandingTime;
 
-        UnityEngine.Debug.Log($"timeSinceLanding = {timeSinceLanding}landingWindow = {landingWindow}");
+        //UnityEngine.Debug.Log($"timeSinceLanding = {timeSinceLanding}landingWindow = {landingWindow}");
 
         if (timeSinceLanding <= landingWindow)
         {
-            if (ontheGoal) { currentJumpType = JumpType.Goal; playerState = PlayerState.GOAL_STATE; }
-            //UnityEngine.Debug.Log($"UpgradeJumpType()　できる状態");
+            if (ontheGoal) { currentJumpType = JumpType.Goal; playerState = PlayerState.GOAL_STATE; UnityEngine.Debug.Log($"ゴールステート");
+            }
 
             UpgradeJumpType();
             wasUpgradedThisCycle = true;
@@ -469,7 +474,7 @@ public class DededeJump2 : MonoBehaviour
                 stopwatch.Reset();
                 stopwatch.Start();
                 //UnityEngine.Debug.Log($"Delta: {stopwatch.Elapsed.TotalMilliseconds}");
-                //CRImusic_DspTime = music.time;
+                CRImusic_DspTime = music.time;
                 //UnityEngine.Debug.Log($"dedede ジャンプマーカー　：{CRImusic_DspTime}");
                 //UnityEngine.Debug.Log($"Jump Marker : {Jump_DspTime},{stopwatch.Elapsed.TotalMilliseconds}");
             }
@@ -524,7 +529,7 @@ public class DededeJump2 : MonoBehaviour
         isJumping = true;
 
         float total = beatInterval * 2f - 0.02f;
-        float move = 0.2f;//total * jumpSpeedRatio;
+        float move = total * jumpSpeedRatio;// jumpSpeedRatio = 0.24f
         float stay = total - move * 2;
 
         float targetY = groundY + GetJumpHeight();
@@ -558,7 +563,7 @@ public class DededeJump2 : MonoBehaviour
                 duration    // 所要時間
             ).SetEase(Ease.OutQuad)).AppendCallback(() => { canBackBeat = false; animator.SetTrigger("Trg_JumpUp"); currentJumpPhase = JumpPhase.Rising; })
               .AppendInterval(stay).AppendCallback(() => { currentJumpPhase = JumpPhase.Stay; })
-              .AppendCallback(() => { canBackBeat = true; animator.SetTrigger("Trg_JumpLoop"); })
+              .AppendCallback(() => { canBackBeat = true;  })//animator.SetTrigger("Trg_JumpLoop");
               .Append(transform.DOMove(FirstDrum.transform.position, move).SetEase(Ease.InQuad))
               .AppendCallback(() =>
               {
@@ -606,11 +611,12 @@ public class DededeJump2 : MonoBehaviour
         {
             // 上昇
             seq.Append(
-                transform.DOMoveY(targetY, move).SetEase(Ease.OutQuad)
+            transform.DOMoveY(targetY, move).SetEase(Ease.OutQuad)
             ).AppendCallback(() =>
             {
                 // 上昇終わり → 滞空開始
-                animator.SetTrigger("Trg_JumpLoop");
+                animator.SetTrigger("Trg_JumpUp");
+                //animator.SetTrigger("Trg_JumpLoop");
                 canBackBeat = true;                 // ★ここから滞空
                 currentJumpPhase = JumpPhase.Stay;
             });

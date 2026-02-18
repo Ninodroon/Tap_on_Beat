@@ -10,9 +10,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 68812388f6f4d2d4cbb5fa373aef86a8, type: 3}
-  m_Name: Enemy1
+  m_Name: Ghost
   m_EditorClassIdentifier: 
-  type: 6
-  prefab: {fileID: 8079136325690893939, guid: bd9d634a15a9305469ef8b18720e1712, type: 3}
+  prefab: {fileID: 4806630383682606630, guid: ef540e4b2f17d204dad8c2078cac7425, type: 3}
   size: {x: 1, y: 1}
-  isDrum: 1
+  isDrum: 0

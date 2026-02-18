@@ -1,27 +1,38 @@
-// JudgeEffectManager.cs - 新規作成
 using DG.Tweening;
 using TMPro;
 using Unity.Burst.CompilerServices;
 using UnityEngine;
-
+using UnityEngine.UI;
 
 public class JudgeEffectManager : MonoBehaviour
 {
     public static JudgeEffectManager Instance { get; private set; }
 
     public GameObject drumEffectPrefab;
-    public TextMeshProUGUI judgeText;
+    public Image judgeImage; // Inspector に割り当て
+    public Sprite greatSprite;
+    public Sprite goodSprite;
+    //public Sprite missSprite;
+
     public float displayDuration = 0.5f;
     public Vector3 offsetFromPlayer = new Vector3(0, -1f, 0);
 
     private float hideTimer = 0f;
+    private CanvasGroup _canvasGroup;
 
     void Awake()
     {
         Instance = this;
-        if (judgeText != null)
+        if (judgeImage != null)
         {
-            judgeText.gameObject.SetActive(false);
+            judgeImage.gameObject.SetActive(false);
+            // フェード操作用に CanvasGroup を追加しておく（無ければ作成）
+            _canvasGroup = judgeImage.GetComponent<CanvasGroup>();
+            if (_canvasGroup == null)
+            {
+                _canvasGroup = judgeImage.gameObject.AddComponent<CanvasGroup>();
+            }
+            _canvasGroup.alpha = 1f;
         }
     }
 
@@ -32,37 +43,65 @@ public class JudgeEffectManager : MonoBehaviour
             hideTimer -= Time.deltaTime;
             if (hideTimer <= 0)
             {
-                judgeText.gameObject.SetActive(false);
+                if (judgeImage != null) judgeImage.gameObject.SetActive(false);
             }
         }
 
-        // プレイヤーの位置に追従
-        if (DededeJump2.Instance != null && judgeText.gameObject.activeSelf)
+        // プレイヤーの位置に追従（スクリーン座標へ）
+        if (DededeJump2.Instance != null && judgeImage != null && judgeImage.gameObject.activeSelf)
         {
             Vector3 worldPos = DededeJump2.Instance.transform.position + offsetFromPlayer;
-            judgeText.transform.position = Camera.main.WorldToScreenPoint(worldPos);
+            Vector3 screenPos = Camera.main.WorldToScreenPoint(worldPos);
+            judgeImage.rectTransform.position = screenPos;
         }
     }
 
+    // 評価に応じてスプライト表示する既存呼び出しを維持
     public void ShowJudge(JudgeType judge)
     {
-        if (judgeText == null) return;
+        if (judgeImage == null) return;
 
-        judgeText.text = judge.ToString();
+        // スプライト選択
+        switch (judge)
+        {
+            case JudgeType.GREAT:
+                judgeImage.sprite = greatSprite;
+                break;
+            case JudgeType.GOOD:
+                judgeImage.sprite = goodSprite;
+                break;
+            default:
+                //judgeImage.sprite = missSprite;
+                break;
+        }
 
-        // 色分け
-        if (judge == JudgeType.GREAT)
-            judgeText.color = Color.yellow;
-        else if (judge == JudgeType.GOOD)
-            judgeText.color = Color.green;
+        judgeImage.SetNativeSize();
+        judgeImage.gameObject.SetActive(true);
 
-        judgeText.gameObject.SetActive(true);
+        // 表示時間セット
         hideTimer = displayDuration;
+
+        // フェードイン→保持→フェードアウト（DOTween使用）
+        if (_canvasGroup != null)
+        {
+            _canvasGroup.alpha = 0f;
+            _canvasGroup.DOFade(1f, 0.08f).OnComplete(() =>
+            {
+                // 表示終了時にフェードアウト
+                DOVirtual.DelayedCall(displayDuration, () =>
+                {
+                    _canvasGroup.DOFade(0f, 0.18f).OnComplete(() =>
+                    {
+                        judgeImage.gameObject.SetActive(false);
+                    });
+                });
+            });
+        }
     }
 
+    // 既存のドラムエフェクトはそのまま
     public void ShowDrumEffect(Vector3 drumPosition)
     {
-        // まずは白い点を作る
         GameObject tempEffect = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         tempEffect.transform.position = drumPosition + Vector3.up * 0.2f;
         tempEffect.transform.localScale = Vector3.one * 0.2f;
@@ -70,10 +109,8 @@ public class JudgeEffectManager : MonoBehaviour
         Renderer renderer = tempEffect.GetComponent<Renderer>();
         renderer.material.color = Color.white;
 
-        // コライダー不要
         Destroy(tempEffect.GetComponent<Collider>());
 
-        // DOTweenで "広がり + フェードアウト"
         Sequence seq = DOTween.Sequence();
 
         seq.Append(tempEffect.transform.DOScale(1.2f, 0.2f).SetEase(Ease.OutQuad))
@@ -83,8 +120,4 @@ public class JudgeEffectManager : MonoBehaviour
                Destroy(tempEffect);
            });
     }
-
-
-
-
 }

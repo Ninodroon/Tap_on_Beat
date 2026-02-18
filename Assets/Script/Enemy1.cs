@@ -1,100 +1,91 @@
 using Cysharp.Threading.Tasks;
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Threading;
-using UnityEditor;
 using UnityEngine;
 
-public class Enemy1 : MonoBehaviour
+public class Enemy1 : EnemyBase
 {
-    [SerializeField] private int blinkCount = 6;
-    [SerializeField] private float blinkInterval = 0.1f;
+    [Header("移動設定")]
+    [SerializeField] private float moveSpeed = 2f;
+    [SerializeField] private int switchEveryNBeats = 2; // jumpマーカー何個で方向転換するか
+    [SerializeField] private float turnDuration = 0.05f; // 振り向き時間
 
-    // Bee flight parameters
-    [SerializeField] private float beeDistance = 3f;     // local z方向の移動距離
-    [SerializeField] private float beeDuration = 1f;     // 片方向に移動する所要時間
-    [SerializeField] private bool beeLoop = true;        // 行き来を繰り返すか
 
-    private bool isBlinking = false;
+    [Header("奥行きスケール設定")]
+    [SerializeField] private float zNear = 0f;   // 手前のZ座標
+    [SerializeField] private float zFar = 8f;   // 奥のZ座標
+    [SerializeField] private float scaleNear = 1f;   // 手前でのスケール
+    [SerializeField] private float scaleFar = 0.7f; // 奥でのスケール
 
-    // Start is called before the first frame update
-    void Start()
+    private int direction = 1;//方向
+    private bool isMoving = false;
+    private int markerCount = 0;     // マーカーを数えるカウンター
+    private CancellationTokenSource moveCts;
+
+    protected override void Awake()
     {
-        BeeFly(beeDistance, beeDuration, beeLoop, this.GetCancellationTokenOnDestroy()).Forget();
+        base.Awake();
     }
 
-    // Update is called once per frame
-    void Update()
+    private void OnEnable()
     {
+        AdxMarkerBroadcaster.OnMarkerReceived += OnMarkerReceived;
     }
 
-    private async void OnTriggerEnter(Collider other)
+    private void OnDisable()
     {
-        if (other.gameObject.CompareTag("Player"))
+        AdxMarkerBroadcaster.OnMarkerReceived -= OnMarkerReceived;
+        moveCts?.Cancel();
+    }
+
+    private void OnMarkerReceived(string tag)
+    {
+        if (tag != "JUMP") return;
+
+        markerCount++;
+        if (markerCount % switchEveryNBeats != 0) return;
+
+        // 前の移動・回転を止める
+        moveCts?.Cancel();
+        moveCts = CancellationTokenSource.CreateLinkedTokenSource(
+            this.GetCancellationTokenOnDestroy()
+        );
+
+        if (isMoving) direction *= -1;
+        isMoving = true;
+
+        TurnAndMove(moveCts.Token).Forget();
+    }
+
+    // ─────────────────────────────────
+    // 振り向き（ease-out）→ そのまま移動
+    // ─────────────────────────────────
+    private async UniTaskVoid TurnAndMove(CancellationToken token)
+    {
+        // 回転アニメーション
+        Quaternion from = transform.rotation;
+        Quaternion to = Quaternion.LookRotation(Vector3.forward * direction);
+
+        float elapsed = 0f;
+        while (elapsed < turnDuration)
         {
-            
-            // UniTask を返すメソッドを await して終了まで待つ（例: 2秒間点滅）
-            await Blink(2f);
+            if (token.IsCancellationRequested) return;
+            float p = Mathf.Clamp01(elapsed / turnDuration);
+            //float s = 1f - (1f - p) * (1f - p); // ease-out：最初速く、最後ゆっくり
+            float s = p * p * p; // ease-out：最初速く、最後ゆっくり
+            transform.rotation = Quaternion.Slerp(from, to, s);
+            await UniTask.Yield(PlayerLoopTiming.Update, token);
+            elapsed += Time.deltaTime;
         }
-    }
+        transform.rotation = to;
 
-    async UniTask BeeFly(float distance, float duration, bool loop, CancellationToken token = default)
-    {
-        if (duration <= 0f) return;
-
-        // 初期位置を基準に往復する
-        Vector3 start = transform.position;
-        Vector3 forward = transform.forward.normalized;
-        Vector3 a = start;
-        Vector3 b = start + forward * distance;
-
-        do
+        // 移動ループ
+        while (!token.IsCancellationRequested)
         {
-            // a -> b
-            float t = 0f;
-            while (t < duration)
-            {
-                if (token.IsCancellationRequested || this == null) return;
-                float p = Mathf.Clamp01(t / duration);
-                // 二次イージング（ease-in-out）
-                float s = (p < 0.5f) ? (2f * p * p) : (1f - 2f * Mathf.Pow(1f - p, 2f));
-                transform.position = Vector3.Lerp(a, b, s);
-                await UniTask.Yield(token);
-                t += Time.deltaTime;
-            }
-            transform.position = b;
-
-            // b -> a
-            t = 0f;
-            while (t < duration)
-            {
-                if (token.IsCancellationRequested || this == null) return;
-                float p = Mathf.Clamp01(t / duration);
-                float s = (p < 0.5f) ? (2f * p * p) : (1f - 2f * Mathf.Pow(1f - p, 2f));
-                transform.position = Vector3.Lerp(b, a, s);
-                await UniTask.Yield(token);
-                t += Time.deltaTime;
-            }
-            transform.position = a;
-
-        } while (loop && !token.IsCancellationRequested && this != null);
-    }
-
-    async UniTask Blink(float duration)
-    {
-        float t = 0f;
-        var rend = GetComponentInChildren<Renderer>();
-        if (rend == null) return;
-
-        while (t < duration)
-        {
-            if (rend == null) break;
-            rend.enabled = !rend.enabled;
-            await UniTask.Delay((int)(blinkInterval * 1000));
-            t += blinkInterval;
+            transform.position += Vector3.forward * direction * moveSpeed * Time.deltaTime;
+            float t = Mathf.InverseLerp(zNear, zFar, transform.position.z);
+            float sc = Mathf.Lerp(scaleNear, scaleFar, t);
+            transform.localScale = originalScale * sc;
+            await UniTask.Yield(PlayerLoopTiming.Update, token);
         }
-
-        if (rend != null) rend.enabled = true;
     }
 }
