@@ -1,25 +1,22 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 /*
  ƒhƒ‰ƒ€
  •\— ‚É‚Ð‚Á‚­‚è•Ô‚é
  */
-
 public class Drum_FlipOn : MonoBehaviour
 {
     float timer = 999f;
-    float startZ;
-    float endZ;
+    Quaternion startRot;
+    Quaternion endRot;
 
     [Header("Bounce Rotation Ý’è")]
-    public float damping = 1f;      // Œ¸Š
-    public float frequency = 18f;   // —h‚ê‘¬“x
-    public float maxTime = 0.4f;    // —h‚ê‘±‚­ŽžŠÔ
+    public float damping = 1f;
+    public float frequency = 18f;
+    public float maxTime = 0.4f;
 
+    bool waitMove = false;
     bool isFront = true;
-
 
     void OnEnable()
     {
@@ -35,13 +32,18 @@ public class Drum_FlipOn : MonoBehaviour
     {
         if (tag == "JUMP")
         {
-            timer = 0f;
-
-            isFront = !isFront;
-
-            startZ = transform.eulerAngles.z;
-
-            endZ = isFront ? 0f : 180f;
+            if (!waitMove)
+            {
+                timer = 0f;
+                isFront = !isFront;
+                startRot = transform.rotation;
+                endRot = Quaternion.Euler(0, 0, isFront ? 0f : 180f);
+                waitMove = true;
+            }
+            else
+            {
+                waitMove = false;
+            }
         }
     }
 
@@ -50,17 +52,11 @@ public class Drum_FlipOn : MonoBehaviour
         timer += Time.deltaTime;
         if (timer > maxTime)
         {
-            transform.rotation = Quaternion.Euler(0, 0, endZ);
+            transform.rotation = endRot;
             return;
         }
 
-        float t = timer;
-
-        float wave = 1f - Mathf.Exp(-damping * t) * Mathf.Cos(frequency * t);
-
-        float z = Mathf.Lerp(startZ, endZ, wave);
-
-        transform.rotation = Quaternion.Euler(0, 0, z);
+        float wave = 1f - Mathf.Exp(-damping * timer) * Mathf.Cos(frequency * timer);
+        transform.rotation = Quaternion.Slerp(startRot, endRot, wave);
     }
 }
-

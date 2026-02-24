@@ -23,6 +23,9 @@ public class Drum_Normal : MonoBehaviour
     private float frequency = 20f;    // É÷ÅFêUìÆÇÃë¨Ç≥
     private float maxTime = 0.5f;     // óhÇÍÇ™ë±Ç≠éûä‘
 
+    private float delay = 0.05f; // íxâÑïbêî
+
+
     void Start()
     {
         originalScale = transform.localScale;
@@ -42,7 +45,9 @@ public class Drum_Normal : MonoBehaviour
     {
         if (tag == "JUMP")
         {
-            timer = 0f;
+            timer = -delay;
+            //timer =0;
+
         }
     }
 
@@ -57,15 +62,15 @@ public class Drum_Normal : MonoBehaviour
         }
 
         float t = timer;
-        float wave = Mathf.Exp(-damping * t) * Mathf.Abs(Mathf.Cos(frequency * t));
+        float wave = Mathf.Exp(-damping * t) * Mathf.Abs(Mathf.Cos(frequency * t));//ÉoÉEÉìÉX
         float yScale = 1f - amount * wave;
+        float xzScale = 1f + amount * 0.5f * wave;
 
         transform.localScale = new Vector3(
-            originalScale.x,
+            originalScale.x * xzScale,
             originalScale.y * yScale,
-            originalScale.z
+            originalScale.z * xzScale
         );
-
 
     }
 

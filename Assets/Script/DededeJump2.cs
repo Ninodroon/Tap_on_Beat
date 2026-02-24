@@ -2,18 +2,18 @@
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using System;
-using System.Collections;
+//using System.Collections;
 using System.Diagnostics;
-using System.Linq.Expressions;
+//using System.Linq.Expressions;
 using System.Threading;
-using Unity.Burst.CompilerServices;
-using Unity.VisualScripting;
+//using Unity.Burst.CompilerServices;
+//using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.Playables;
-using UnityEngine.Rendering.Universal;
+//using UnityEngine.Playables;
+//using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
-using UnityEngine.Serialization;
-using static UnityEngine.EventSystems.EventTrigger;
+//using UnityEngine.Serialization;
+//using static UnityEngine.EventSystems.EventTrigger;
 
 
 public class DededeJump2 : MonoBehaviour
@@ -134,6 +134,7 @@ public class DededeJump2 : MonoBehaviour
 
     public static event Action<string> OnMarkerReceived;
     private float moveSpeed = 2.0f;
+    private float addMove = 1.3f;
     [Header("1bpmで進むマス")] public float moveDistance = 2.3f;
 
     bool isJumpMarker = false;
@@ -168,10 +169,10 @@ public class DededeJump2 : MonoBehaviour
         groundY = FirstDrum.transform.position.y;//実行するたびにインスペクターでいれたオブジェクトがリセットされる
         beatInterval = (60f / bpm);//120bpmなら0.5mm秒
                                    //UnityEngine.Debug.Log($"beatInterval : {beatInterval}");
-        moveSpeed = moveDistance; // bpmに応じて移動速度を調整
+        moveSpeed = moveDistance * 1.3f; // bpmに応じて移動速度を調整
 
         float twoBwats = beatInterval * 2;
-        moveSpeed = (moveDistance * moveDistance) / twoBwats;
+        //moveSpeed = (moveDistance * moveDistance) / twoBwats;
         UnityEngine.Debug.Log($"moveSpeed = {moveSpeed}");
 
         animator = GetComponent<Animator>();
@@ -206,7 +207,7 @@ public class DededeJump2 : MonoBehaviour
 
             if (playerState == PlayerState.RESPAWN_STATE)
             {
-                SyncToMarker();
+                SyncToMarker();             
             }
             else
             {
@@ -225,9 +226,11 @@ public class DededeJump2 : MonoBehaviour
     {
         if (lastPlayerState != playerState)
         { 
-        UnityEngine.Debug.Log($"playerstate = {playerState}");
+            UnityEngine.Debug.Log($"playerstate = {playerState}");
             lastPlayerState = playerState;
         }
+
+        if(currentJumpPhase == JumpPhase.Stay)addMove = 1.5f; else addMove = 1.0f;
 
         //if (lastcurrentJumpType != currentJumpType)
         //{ 
@@ -553,7 +556,7 @@ public class DededeJump2 : MonoBehaviour
             Vector3 start = StartPos.position;
             Vector3 end = FirstDrum.position;
 
-            float jumpPower = GetJumpHeight() * 1.4f;//まるさ
+            float  jumpPower= GetJumpHeight() * 1.4f;//まるさ
             float duration = total;  //total            // 今の move をそのまま使う
 
             seq.Append(transform.DOJump(
@@ -584,7 +587,7 @@ public class DededeJump2 : MonoBehaviour
         else if (playerState == PlayerState.GOAL_STATE)
         {
             targetY = 20.0f;
-            seq.Append(transform.DOMoveY(targetY, move).SetEase(Ease.OutQuad))
+            seq.Append(transform.DOMoveY(targetY, move*3).SetEase(Ease.OutQuad))
                .AppendCallback(() => { animator.SetTrigger("Trg_JumpUp"); })
                .AppendInterval(stay).AppendCallback(() => { currentJumpPhase = JumpPhase.Stay; })
                .AppendCallback(() =>
@@ -768,19 +771,56 @@ public class DededeJump2 : MonoBehaviour
 
 
         Vector3 landPos = new Vector3(
-            lastDrumPos.x,
+            transform.position.x,//?
             lastDrumPos.y,
             transform.position.z
         );
 
         DOTween.Kill(transform);
+        if (playerState == PlayerState.FALL_STATE) { playerState = PlayerState.STAND_STATE; return; }
 
-        transform.DOMove(landPos, 0.5f)
-            .SetEase(Ease.InQuad)
-            .OnComplete(() =>
+
+
+            //if (isJumpMarker) { 
+            //    transform.DOMove(landPos, 0.5f)
+            //    .SetEase(Ease.InQuad)
+            //    .OnComplete(() =>
+            //    {
+            //        //StartRespawnJump();
+            //        StartJump();
+            //    });
+            //}
+
+        var seq = DOTween.Sequence();
+        float total = beatInterval * 2f - 0.02f;
+        float move = total * jumpSpeedRatio;
+
+        //どっちかのタイミングでおりれば、綺麗に間に合う その間は
+        if (isJumpMarker || isBackMarker)
+        {
+            seq.Append(
+                transform.DOMoveY(groundY, move).SetEase(Ease.InQuad)
+            ).OnComplete(() =>
             {
-                StartRespawnJump();
+                isJumping = false;
+                lastLandingTime = Time.time;
+
+                if (!ontheDrum)
+                {
+                    UnityEngine.Debug.Log($"ドラムの上にいないので落下開始");
+                    StartFall();
+
+                    playerState = PlayerState.FALL_STATE;
+                }
+                else
+                {
+                    if (isOnEdge)
+                    {
+                        currentJumpType = JumpType.Ottoto;
+                    }
+                }
             });
+        }
     }
 
 
