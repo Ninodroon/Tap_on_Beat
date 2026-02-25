@@ -9336,10 +9336,40 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 535574836876020523, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
+        type: 3}
+      propertyPath: stiffnessForce
+      value: 700
+      objectReference: {fileID: 0}
     - target: {fileID: 868276522011297533, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
       propertyPath: m_Name
       value: Toko_sum
+      objectReference: {fileID: 0}
+    - target: {fileID: 1631720336895123468, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
+        type: 3}
+      propertyPath: stiffnessForce
+      value: 700
+      objectReference: {fileID: 0}
+    - target: {fileID: 3184724822665220660, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
+        type: 3}
+      propertyPath: stiffnessForce
+      value: 1300
+      objectReference: {fileID: 0}
+    - target: {fileID: 4053339473507943805, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
+        type: 3}
+      propertyPath: stiffnessForce
+      value: 1300
+      objectReference: {fileID: 0}
+    - target: {fileID: 4763978280882067554, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
+        type: 3}
+      propertyPath: stiffnessForce
+      value: 1300
+      objectReference: {fileID: 0}
+    - target: {fileID: 4857439669623397630, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
+        type: 3}
+      propertyPath: stiffnessForce
+      value: 700
       objectReference: {fileID: 0}
     - target: {fileID: 4909228089003660590, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
@@ -9354,52 +9384,52 @@ PrefabInstance:
     - target: {fileID: 5578843344351688869, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
       propertyPath: m_LocalPosition.x
-      value: -2.08
+      value: -2.0788646
       objectReference: {fileID: 0}
     - target: {fileID: 5578843344351688869, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 4.42
+      value: 4.418623
       objectReference: {fileID: 0}
     - target: {fileID: 5578843344351688869, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: -0.016474396
       objectReference: {fileID: 0}
     - target: {fileID: 5578843344351688869, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.34202018
+      value: 0.34573656
       objectReference: {fileID: 0}
     - target: {fileID: 5578843344351688869, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0
+      value: 0.0024141762
       objectReference: {fileID: 0}
     - target: {fileID: 5578843344351688869, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0.9396927
+      value: 0.9383056
       objectReference: {fileID: 0}
     - target: {fileID: 5578843344351688869, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: 0.0065519083
       objectReference: {fileID: 0}
     - target: {fileID: 5578843344351688869, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
+      value: -0.609
       objectReference: {fileID: 0}
     - target: {fileID: 5578843344351688869, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: 140
+      value: 139.543
       objectReference: {fileID: 0}
     - target: {fileID: 5578843344351688869, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
+      value: 0.519
       objectReference: {fileID: 0}
     - target: {fileID: 5800513271232380396, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
@@ -9426,10 +9456,22 @@ PrefabInstance:
       propertyPath: isStartJump
       value: 1
       objectReference: {fileID: 0}
+<<<<<<< Updated upstream
     - target: {fileID: 6674353753891342439, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
         type: 3}
       propertyPath: moveDistance
       value: 3.5
+=======
+    - target: {fileID: 9066992160999373875, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
+        type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9066992160999373875, guid: ed6eaa38e7cd8014cb512c3a141fb9a8,
+        type: 3}
+      propertyPath: stiffnessForce
+      value: 1500
+>>>>>>> Stashed changes
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
