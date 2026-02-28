@@ -615,7 +615,9 @@ public class DededeJump2 : MonoBehaviour
             ).AppendCallback(() =>
             {
                 // 上昇終わり → 滞空開始
-                animator.SetTrigger("Trg_JumpUp");
+                animator.Play("TopToGround", 0, 0.0f);
+
+                //animator.SetTrigger("Trg_JumpUp");
                 //animator.SetTrigger("Trg_JumpLoop");
                 canBackBeat = true;                 // ★ここから滞空
                 currentJumpPhase = JumpPhase.Stay;
@@ -629,13 +631,20 @@ public class DededeJump2 : MonoBehaviour
             {
                 canBackBeat = false;                // ★滞空終了
                 currentJumpPhase = JumpPhase.Falling;
-                animator.SetTrigger("Trg_JumpDown");
+                //animator.SetTrigger("Trg_JumpDown");
+
             });
 
             // 下降
             seq.Append(
                 transform.DOMoveY(groundY, move).SetEase(Ease.InQuad)
-            ).OnComplete(() =>
+            ).AppendCallback(() =>
+            {
+                animator.Play("JumpToTop", 0, 0.0f);
+
+            });
+
+            seq.OnComplete(() =>
             {
                 isJumping = false;
                 lastLandingTime = Time.time;
