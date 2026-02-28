@@ -51,7 +51,7 @@ public class GameMain : MonoBehaviour {
 					foreach(GameObject ball in balls){
 						Rigidbody rb = ball.GetComponent<Rigidbody>();
 						if(rb != null){
-							rb.velocity = new Vector3(0,0,0);
+							rb.linearVelocity = new Vector3(0,0,0);
 							rb.position = new Vector3(hit.point.x,hit.point.y,0);
 						}
 					}
@@ -151,7 +151,7 @@ public class GameMain : MonoBehaviour {
 							foreach(GameObject ball in balls){
 								Rigidbody rb = ball.GetComponent<Rigidbody>();
 								if(rb != null){
-									rb.velocity = new Vector3(0,0,0);
+									rb.linearVelocity = new Vector3(0,0,0);
 									rb.useGravity = true;
 								}
 							}
@@ -164,7 +164,7 @@ public class GameMain : MonoBehaviour {
 							foreach(GameObject ball in balls){
 								Rigidbody rb = ball.GetComponent<Rigidbody>();
 								if(rb != null){
-									rb.velocity = new Vector3(0,0,0);
+									rb.linearVelocity = new Vector3(0,0,0);
 									rb.useGravity = false;
 								}
 							}

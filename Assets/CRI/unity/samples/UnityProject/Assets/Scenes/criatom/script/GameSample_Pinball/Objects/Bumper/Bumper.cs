@@ -44,8 +44,8 @@ public class Bumper : MonoBehaviour {
 
 			if(other.tag == "Ball" && BumperEnableFlag){
 
-				rb.velocity = new Vector3 (
-					rb.velocity.x + (Random.Range (-0.5f, 0.5f)),
+				rb.linearVelocity = new Vector3 (
+					rb.linearVelocity.x + (Random.Range (-0.5f, 0.5f)),
 					Random.Range (1.1f, 1.2f) * 20.0f,
 					0);
 

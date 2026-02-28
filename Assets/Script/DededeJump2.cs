@@ -100,15 +100,15 @@ public class DededeJump2 : MonoBehaviour
     private bool _gizmoHitL;
     private bool _gizmoHitR;
 
-    private enum PlayerState//プレイヤーの状態
+    private enum PlayerState    //プレイヤーの状態
     {
-        START_STATE,
-        STAND_STATE,      // 通常プレイ中
-        FALL_STATE,
-        DAMAGE_STATE,
-        RESPAWN_STATE,   // リスポーン中（落下orダメージ→着地待ち）
-        GOAL_STATE,
-        TIMEOUT_STATE
+        START_STATE,            //waitにする
+        STAND_STATE,            // 通常プレイ中
+        FALL_STATE,             //何かアクションがないので消して
+        DAMAGE_STATE,           //
+        RESPAWN_STATE,          // リスポーン中（落下orダメージ→着地待ち）
+        GOAL_STATE,             //
+        TIMEOUT_STATE           //gameオーバーにして
 
     }
     private PlayerState playerState = PlayerState.START_STATE;
@@ -166,10 +166,10 @@ public class DededeJump2 : MonoBehaviour
     {
         FirstDrum = StageDataAsset.GetFirstDrumTransform();
 
-        groundY = FirstDrum.transform.position.y;//実行するたびにインスペクターでいれたオブジェクトがリセットされる
-        beatInterval = (60f / bpm);//120bpmなら0.5mm秒
-                                   //UnityEngine.Debug.Log($"beatInterval : {beatInterval}");
-        moveSpeed = moveDistance * 1.3f; // bpmに応じて移動速度を調整
+        groundY = FirstDrum.transform.position.y;   // 実行するたびにインスペクターでいれたオブジェクトがリセットされる
+        beatInterval = (60f / bpm);                 // 120bpmなら0.5m秒
+                                                    // UnityEngine.Debug.Log($"beatInterval : {beatInterval}");
+        moveSpeed = moveDistance * 1.3f;            // bpmに応じて移動速度を調整
 
         float twoBwats = beatInterval * 2;
         //moveSpeed = (moveDistance * moveDistance) / twoBwats;
@@ -186,7 +186,6 @@ public class DededeJump2 : MonoBehaviour
         music.Play();
     }
 
-    //20msごと
     void FixedUpdate()
     {
         //ここだけ古いほうのdedede2からコピペ
@@ -290,14 +289,12 @@ public class DededeJump2 : MonoBehaviour
                 Transform drum = hitLinfo.collider.transform.root;
                 lastDrumPos = drum.position;
                 if (drum.CompareTag("Drum_Goal")) ontheGoal = true;
-
             }
             if (isrightDrum)
             {
                 Transform drum = hitRinfo.collider.transform.root;
                 lastDrumPos = drum.position;
                 if (drum.CompareTag("Drum_Goal")) ontheGoal = true;
-
             }
         }
 
@@ -548,16 +545,16 @@ public class DededeJump2 : MonoBehaviour
             // Vector3 end = FirstDrum.transform.position;
             Vector3 target = new Vector3(
            FirstDrum.position.x, // X = 中間
-            StartPos.transform.position.y + GetJumpHeight(),               // Y = スタート台の高さ + ジャンプ量
-            0f                                          // Z = 0 固定
+            StartPos.transform.position.y + GetJumpHeight(),    // Y = スタート台の高さ + ジャンプ量
+            0f                                                  // Z = 0 固定
              );
             //(StartPos.transform.position.x + FirstDrum.transform.position.x) * 0.5f
 
             Vector3 start = StartPos.position;
             Vector3 end = FirstDrum.position;
 
-            float  jumpPower= GetJumpHeight() * 1.4f;//まるさ
-            float duration = total;  //total            // 今の move をそのまま使う
+            float jumpPower= GetJumpHeight() * 1.4f;        // まるさ
+            float duration = total;                         // 今の move をそのまま使う
 
             seq.Append(transform.DOJump(
                 end,        // 着地点
@@ -864,7 +861,7 @@ public class DededeJump2 : MonoBehaviour
         currentSeq = seq;
         seq.Play();
     }
-    //さっきいたドラムの上(取得しとく。)で、normalJumpHeightの高さにリスポーンして１秒待って、
+    //Todo: さっきいたドラムの上(取得しとく。)で、normalJumpHeightの高さにリスポーンして１秒待って、
     //DropToDrum()で、そのまま真下のドラムに着地するケースと、lastDrumPosに向かって弧を描いて着地するケースが欲しい。落下とダメージに対応したい。
 
     //startjump()のロジックのように、jumpマーカーに間に合うように着地したい。

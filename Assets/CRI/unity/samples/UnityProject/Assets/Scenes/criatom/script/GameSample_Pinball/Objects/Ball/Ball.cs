@@ -32,11 +32,11 @@ public class Ball : MonoBehaviour {
 
 		/* Calculate the strength. */
 		float sqrLen = Mathf.Sqrt(
-			rb.velocity.x
-			*rb.velocity.x
+			rb.linearVelocity.x
+			*rb.linearVelocity.x
 			+
-			rb.velocity.y
-			*rb.velocity.y
+			rb.linearVelocity.y
+			*rb.linearVelocity.y
 			);
 		//Debug.Log("Mag : " + sqrLen.ToString());
 
