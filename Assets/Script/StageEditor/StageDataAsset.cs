@@ -37,7 +37,8 @@ public class StageDataAsset : ScriptableObject
     {
         StagePlacedObject best = null;
 
-        foreach (var p in UnityEngine.Object.FindObjectsOfType<StagePlacedObject>())
+        foreach (var p in UnityEngine.Object.FindObjectsByType<StagePlacedObject>(
+    FindObjectsSortMode.None))
         {
             if (p == null || p.definition == null) continue;
             if (!p.definition.isDrum) continue;

@@ -37,7 +37,7 @@ public class DededeJump2 : MonoBehaviour
     public float landingWindow = 10f; // この時間内ならアップグレード可能
 
     [Header("スタート台から飛ぶならfalseにする")] public bool isStartJump = false;
-    private Transform FirstDrum;
+    public Transform FirstDrum;
     public Transform StartPos;
 
     [Header("裏打ち")]
@@ -164,8 +164,9 @@ public class DededeJump2 : MonoBehaviour
 
     void Start()
     {
-        FirstDrum = StageDataAsset.GetFirstDrumTransform();
-
+        //FirstDrum = StageDataAsset.GetFirstDrumTransform();
+        if(FirstDrum != null) UnityEngine.Debug.Log($"moveSpeed = {moveSpeed}");
+        else UnityEngine.Debug.LogError($"FirstDrumが見つかりません。StageDataAssetにドラムが配置されているか確認してください。");
         groundY = FirstDrum.transform.position.y;   // 実行するたびにインスペクターでいれたオブジェクトがリセットされる
         beatInterval = (60f / bpm);                 // 120bpmなら0.5m秒
                                                     // UnityEngine.Debug.Log($"beatInterval : {beatInterval}");
